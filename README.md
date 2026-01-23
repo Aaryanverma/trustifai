@@ -28,11 +28,11 @@ It includes an interactive **Reasoning Graph** generator to help debug why a mod
  
 ## 🚀 Installation
 
-Trustifai requires Python 3.9+.
+Trustifai requires Python 3.10+.
 
 ```
 # Clone the repository
-git clone [https://github.com/your-org/trustifai.git](https://github.com/your-org/trustifai.git)
+git clone [https://github.com/Aaryanverma/trustifai.git](https://github.com/Aaryanverma/trustifai.git)
 cd trustifai
 
 # Install dependencies
