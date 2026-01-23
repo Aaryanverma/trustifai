@@ -1,0 +1,78 @@
+env_file: "creds.env"
+tracing:
+  type: "default"
+  params:
+    enabled: true
+    uri: null # set your tracking URI (if available)
+
+llm:
+  type: "openai" #openai, huggingface, gemini, mistral, ollama, azure_ai etc. (LiteLLM completion models)
+  params:
+    model_name: "openai/gpt-4.1-mini"
+    # model_name: "mistral-large-latest"
+    endpoint: https://models.github.ai/inference
+  kwargs:
+    temperature: 0.1
+    max_tokens: 4096
+    top_p: 0.95
+    max_retries: 5
+    timeout: 300
+    logprobs: true
+
+embeddings:
+  type: "mistral" #openai, huggingface, gemini, mistral, ollama, azure etc. (LiteLLM embed models)
+  params:
+    model_name: "mistral-embed"
+    device: "auto" # "auto", "cuda", "cpu", "mps" (applicable for huggingface local models only)
+    kwargs: {}
+
+reranker:
+  type: "cohere" #cohere, together_ai, azure_ai, fireworks_ai, voyage etc. (LiteLLM reranker models)
+  params:
+    model_name: "rerank-v4.0-fast"
+    kwargs: {}
+
+metrics:
+  - type: "evidence_coverage"
+    enabled: true
+    params:
+      strategy: "reranker" #reranker, llm
+      STRONG_GROUNDING: 0.85
+      PARTIAL_GROUNDING: 0.7
+      
+  - type: "consistency"
+    enabled: true
+    params:
+      STABLE_CONSISTENCY: 0.85
+      FRAGILE_CONSISTENCY: 0.65
+
+  - type: "source_diversity"
+    enabled: true
+    params:
+      HIGH_DIVERSITY: 3
+      MODERATE_DIVERSITY: 2
+
+  - type: "semantic_alignment"
+    enabled: true
+    params:
+      STRONG_ALIGNMENT: 0.85
+      PARTIAL_ALIGNMENT: 0.60
+
+  - type: "trust_score"
+    params:
+      RELIABLE_TRUST: 0.8
+      ACCEPTABLE_TRUST: 0.65
+
+score_weights:
+  - type: "evidence_coverage"
+    params:
+      weight: 0.40
+  - type: "consistency"
+    params:
+      weight: 0.20
+  - type: "source_diversity"
+    params:
+      weight: 0.10
+  - type: "semantic_alignment"
+    params:
+      weight: 0.30
