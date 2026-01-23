@@ -51,12 +51,7 @@ jobs:
           name: python-package
           path: dist
 
-      - name: Install Twine
-        run: pip install twine
-
       - name: Publish to PyPI
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.TRUSTIFAI_PYPI_TOKEN }}
-        run: |
-          find dist -type f \( -name "*.whl" -o -name "*.tar.gz" \) -exec twine upload --skip-existing {} +
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.TRUSTIFAI_API_TOKEN }}
