@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "trustifai"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Trustifai: A Comprehensive Framework for AI Trustworthiness"
 readme = "README.md"
 authors = [
