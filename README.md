@@ -50,9 +50,9 @@ Create a .env file or export your API keys. Trustifai uses LiteLLM, so it suppor
 
 ## ⚡ Quick Start
 
-1. Evaluate an existing RAG Response in a few lines of code.
+**1. Evaluate an existing RAG Response in a few lines of code.**
 
-    `Use this flow to score a query/answer pair against retrieved documents.`
+  `Use this flow to score a query/answer pair against retrieved documents.`
 
 ```python
 from Trustifai import Trustifai, MetricContext
@@ -78,10 +78,11 @@ print(f"Trust Score: {result['score']} | Decision: {result['label']}")
 graph = trust_engine.build_reasoning_graph(result)
 trust_engine.visualize(graph, graph_type="pyvis") # Saves to reasoning_graph.html
 ```
+![alt text](assets/trust_score_snippet.png)
 
-2. Generate with Confidence
+**2. Generate with Confidence**
 
-    `Use Trustifai to generate a response and immediately get a confidence score based on token log probabilities.`
+  `Use Trustifai to generate a response and immediately get a confidence score based on token log probabilities.`
 
 ```python
 from trustifai import Trustifai
@@ -98,6 +99,8 @@ result = trust_engine.generate(
 print(f"Response: {result['response']}")
 print(f"Confidence: {result['metadata']['confidence_score']} ({result['metadata']['confidence_label']})")
 ```
+
+![alt text](assets/generate_snippet.png)
 
 ## 🧩 Extending Trustifai (Custom Metrics)
 
