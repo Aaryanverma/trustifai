@@ -31,8 +31,14 @@ It includes an interactive **Reasoning Graph** generator to help debug why a mod
 Trustifai requires Python 3.10+.
 
 ```
+pip install trustifai
+```
+
+OR
+
+```
 # Clone the repository
-git clone [https://github.com/Aaryanverma/trustifai.git](https://github.com/Aaryanverma/trustifai.git)
+git clone https://github.com/Aaryanverma/trustifai.git
 cd trustifai
 
 # Install dependencies

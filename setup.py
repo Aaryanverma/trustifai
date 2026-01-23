@@ -28,9 +28,6 @@ setup(
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
-        "License :: OSI Approved :: MIT License",
-        "Operating System :: Microsoft :: Windows",
-        "Operating System :: MacOS",
-        "Operating System :: POSIX :: Linux",
+        "License :: OSI Approved :: MIT License"
     ],
 )
