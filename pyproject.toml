@@ -8,13 +8,23 @@ version = "0.1.0"
 description = "Trustifai: A Comprehensive Framework for AI Trustworthiness"
 readme = "README.md"
 authors = [
-    { name = "Aaryan Verma" }
+    { name = "Aaryan Verma", email = "aaryan_verma@outlook.com" }
 ]
 requires-python = ">=3.10"
 dependencies = [
-    # Add your requirements here, or use the requirements.txt loader below
+    langchain_core==1.2.7
+    litellm==1.81.1
+    nltk==3.8.1
+    numpy==2.4.1
+    pydantic==2.12.5
+    pytest==8.3.4
+    python-dotenv==1.2.1
+    pyvis==0.3.2
+    PyYAML==6.0.3
+    setuptools==69.2.0
+    tenacity==8.2.3
 ]
-license = { file = "LICENSE" }
+license = "MIT"
 
 classifiers = [
     "Programming Language :: Python :: 3",
