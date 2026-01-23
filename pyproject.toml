@@ -14,9 +14,10 @@ requires-python = ">=3.10"
 dependencies = [
     # Add your requirements here, or use the requirements.txt loader below
 ]
-
-[project.license]
-file = "LICENSE"
+license = "MIT"
+license-files = [
+    "LICENSE",
+]
 
 classifiers = [
     "Programming Language :: Python :: 3",
