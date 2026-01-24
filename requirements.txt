@@ -2,7 +2,7 @@ ipython==8.12.3
 litellm==1.81.1
 nest_asyncio==1.6.0
 nltk==3.8.1
-numpy==2.4.1
+numpy
 pydantic==2.12.5
 python-dotenv==1.2.1
 pyvis==0.3.2
