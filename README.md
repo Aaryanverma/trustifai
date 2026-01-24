@@ -32,11 +32,12 @@ Trustifai requires Python 3.10+.
 
 ```python
 pip install trustifai
-```
 
-```python
 #to enable tracing
 pip install trustifai[trace]
+
+# for tests
+pip install trustifai[test]
 ```
 
 OR
