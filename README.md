@@ -1,10 +1,9 @@
 # Trustifai 
 **🛡️Quantify, Visualize, and Explain Trust in RAG Applications.**
 
-Trustifai is a Python-based observability engine designed to evaluate the trustworthiness of Retrieval-Augmented Generation (RAG) systems. Unlike simple evaluation frameworks that rely on a single "correctness" score, Trustifai computes a multi-dimensional **Trust Score** based on grounding, consistency, alignment, and diversity.
+Trustifai is a Python-based observability engine designed to evaluate the trustworthiness of LLM responses and Retrieval-Augmented Generation (RAG) systems. Unlike simple evaluation frameworks that rely on a single "correctness" score, Trustifai computes a multi-dimensional **Trust Score** based on grounding, consistency, alignment, and diversity.
 
-
-It includes an interactive **Reasoning Graph** generator to help debug why a model output was deemed unreliable.
+It also includes **visualizations** to help showcase why a model output was deemed unreliable.
 
 
 ## 📊 Key Metrics
@@ -15,10 +14,10 @@ It includes an interactive **Reasoning Graph** generator to help debug why a mod
 
 | Metric | Definition | Purpose |
 |------|------------|---------|
-| Evidence Coverage | Segment-level entailment check. The answer is tokenized into sentences and each sentence is verified against retrieved documents using an NLI (Natural Language Inference) approach. | Detects hallucinations. Ensures every claim is supported by the provided context. |
-| Epistemic Consistency | Measures semantic stability ($1 - \sigma$) across $k$ stochastic generations. Samples $k$ responses at high temperature and computes the mean cosine similarity against the original answer. | Detects model uncertainty. Hallucinated answers tend to vary significantly between runs. |
-| Semantic Drift | Similarity between the Answer Embedding and the Mean Document Embedding. | Detects topic drift. Ensures the answer stays within the semantic envelope of the context. |
-| Source Diversity | Normalized count of unique `source_id` references used to derive the answer, penalized by an exponential decay function. | Detects single-source bias. Rewards synthesis from multiple independent sources. |
+| **Evidence Coverage** | Segment-level entailment check. The answer is tokenized into sentences and each sentence is verified against retrieved documents using an NLI (Natural Language Inference) approach. | Detects hallucinations. Ensures every claim is supported by the provided context. |
+| **Epistemic Consistency** | Measures semantic stability ($1 - \sigma$) across $k$ stochastic generations. Samples $k$ responses at high temperature and computes the mean cosine similarity against the original answer. | Detects model uncertainty. Hallucinated answers tend to vary significantly between runs. |
+| **Semantic Drift** | Similarity between the Answer Embedding and the Mean Document Embedding. | Detects topic drift. Ensures the answer stays within the semantic envelope of the context. |
+| **Source Diversity** | Normalized count of distinct source_id references contributing to the answer, adjusted using an exponential decay penalty. | Measures reliance on a single source while rewarding synthesis across multiple independent sources, without excessively penalizing cases where a single document is sufficient.
 
 ### Online Metrics
 
