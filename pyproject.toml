@@ -27,7 +27,7 @@ dependencies = [
 license = { text = "MIT" }
 
 [project.optional-dependencies]
-tracing = ["mlflow==3.8.1"]
+trace = ["mlflow==3.8.1"]
 
 classifiers = [
     "License :: OSI Approved :: MIT License",

@@ -15,9 +15,9 @@ It includes an interactive **Reasoning Graph** generator to help debug why a mod
 
 | Metric | Definition | Purpose |
 |------|------------|---------|
-| Evidence Coverage | Segment-level entailment check. The answer is tokenized into sentences and each sentence is verified against retrieved documents using an NLI (Natural Language Inference) approach via an LLM or reranker. | Detects hallucinations. Ensures every claim is supported by the provided context. |
+| Evidence Coverage | Segment-level entailment check. The answer is tokenized into sentences and each sentence is verified against retrieved documents using an NLI (Natural Language Inference) approach. | Detects hallucinations. Ensures every claim is supported by the provided context. |
 | Epistemic Consistency | Measures semantic stability ($1 - \sigma$) across $k$ stochastic generations. Samples $k$ responses at high temperature and computes the mean cosine similarity against the original answer. | Detects model uncertainty. Hallucinated answers tend to vary significantly between runs. |
-| Semantic Alignment | Cosine similarity between the Answer Embedding vector ($V_A$) and the Mean Document Embedding vector ($\mu_{D}$). | Detects topic drift. Ensures the answer stays within the semantic envelope of the context. |
+| Semantic Drift | Similarity between the Answer Embedding and the Mean Document Embedding. | Detects topic drift. Ensures the answer stays within the semantic envelope of the context. |
 | Source Diversity | Normalized count of unique `source_id` references used to derive the answer, penalized by an exponential decay function. | Detects single-source bias. Rewards synthesis from multiple independent sources. |
 
 ### Online Metrics
@@ -30,8 +30,13 @@ It includes an interactive **Reasoning Graph** generator to help debug why a mod
 
 Trustifai requires Python 3.10+.
 
-```
+```python
 pip install trustifai
+```
+
+```python
+#to enable tracing
+pip install trustifai[trace]
 ```
 
 OR
@@ -102,52 +107,6 @@ print(f"Confidence: {result['metadata']['confidence_score']} ({result['metadata'
 
 ![alt text](assets/generate_snippet.png)
 
-## 🧩 Extending Trustifai (Custom Metrics)
-
-You can plug in custom evaluation logic without modifying the core library.
-
-- Inherit from BaseMetric and implement calculate().
-
-- Register the metric with a unique key.
-
-- Configure the weight in your YAML file.
-
-*Example: Adding a "PII Detection" Metric*
-```python
-from trustifai.metrics import BaseMetric
-from trustifai.structures import MetricResult
-
-# 1. Define Metric
-class PIIMetric(BaseMetric):
-    def calculate(self) -> MetricResult:
-        # Simple check for the word 'password'
-        has_pii = "password" in self.context.answer.lower()
-        score = 0.0 if has_pii else 1.0
-        
-        return MetricResult(
-            score=score,
-            label="Secure" if not has_pii else "PII Detected",
-            details={"found_pii": has_pii}
-        )
-
-# 2. Register Metric
-from Trustifai import Trustifai
-Trustifai.register_metric("pii_check", PIIMetric)
-
-# 3. Use in Trust Engine (Make sure to add it to config.yaml score_weights!)
-trust_engine = Trustifai(context, "config_file.yaml")
-```
-
-*Updated config.yaml:*
-```yaml
-score_weights:
-  - type: "evidence_coverage"
-    params: { weight: 0.4 }
-  - type: "pii_check"         # <--- Your new metric
-    params: { weight: 0.1 }   # Weights must sum to ~1.0
-  # ... other metrics ...
-```
-
 ## ⚙️ Configuration
 Control the sensitivity of the evaluation using config_file.yaml.
 
@@ -165,7 +124,7 @@ metrics:
   - type: "evidence_coverage"
     params:
       STRONG_GROUNDING: 0.85 # Threshold for "Trusted" label
-      PARTIAL_GROUNDING: 0.50
+      PARTIAL_GROUNDING: 0.60
   - type: "consistency"
     params:
       STABLE_CONSISTENCY: 0.90 # Requires 0.9 cosine sim to be "Stable"
@@ -174,13 +133,13 @@ metrics:
 # Adjust these based on your business priority.
 score_weights:
   - type: "evidence_coverage"
-    params: { weight: 0.40 } # Highest priority on factual accuracy
+    params: { weight: 0.45 } # Highest priority on factual accuracy
   - type: "semantic_drift"
     params: { weight: 0.30 }
   - type: "consistency"
     params: { weight: 0.20 }
   - type: "source_diversity"
-    params: { weight: 0.10 }
+    params: { weight: 0.05 }
 ```
 
 
@@ -204,6 +163,80 @@ print(trust_engine.visualize(graph, graph_type="mermaid"))
 ```
 ![mermaid diagram](assets/image-1.png)
 
+## 🧩 Extending Trustifai (Custom Metrics)
+
+You can plug in custom evaluation logic without modifying the core library.
+
+- Inherit from BaseMetric and implement calculate().
+
+- Register the metric with a unique key.
+
+- Configure the weight in your YAML file.
+
+*Example: Adding a "Temporal Consistency" Metric*
+```python
+from trustifai.metrics import BaseMetric
+from trustifai.structures import MetricResult
+
+# 1. Define Metric
+class TemporalConsistencyMetric(BaseMetric):
+    """Detects temporal hallucinations - when the answer references dates/times
+    that don't match the retrieved documents."""
+    def calculate(self) -> MetricResult:
+        # Extract dates from answer and documents
+        answer_dates = self._extract_dates(self.context.answer) #assuming extract_dates logic is already implemented
+        doc_dates = set()
+        for doc in self.context.documents:
+            doc_dates.update(self._extract_dates(doc.page_content))
+        
+        if not answer_dates:
+            return MetricResult(
+                score=1.0,
+                label="No Temporal Claims",
+                details={"answer_dates": [], "doc_dates": list(doc_dates)}
+            )
+        
+        # Check if answer dates are within document date ranges
+        supported_dates = [d for d in answer_dates if d in doc_dates]
+        unsupported_dates = [d for d in answer_dates if d not in doc_dates]
+        
+        score = len(supported_dates) / len(answer_dates) if answer_dates else 1.0
+        
+        if score >= 0.8:
+            label = "Temporally Consistent"
+        elif score >= 0.5:
+            label = "Partial Temporal Issues"
+        else:
+            label = "Temporal Hallucination Detected"
+        
+        return MetricResult(
+            score=score,
+            label=label,
+            details={
+                "answer_dates": answer_dates,
+                "supported_dates": supported_dates,
+                "unsupported_dates": unsupported_dates,
+                "doc_dates": list(doc_dates)
+            }
+        )
+
+# 2. Register Metric
+from Trustifai import Trustifai
+Trustifai.register_metric("pii_check", PIIMetric)
+
+# 3. Use in Trust Engine (Make sure to add it to config.yaml score_weights!)
+trust_engine = Trustifai(context, "config_file.yaml")
+```
+
+*Updated config.yaml:*
+```yaml
+score_weights:
+  - type: "evidence_coverage"
+    params: { weight: 0.4 }
+  - type: "temporal_consistency"         # <--- Your new metric
+    params: { weight: 0.1 }   # Weights must sum to ~1.0
+  # ... other metrics ...
+```
 
 ## 🛠️ Architecture
 - Context Ingestion: The MetricContext object normalizes inputs (Strings, LangChain/LlamaIndex Documents, List, Dictionary etc.).
@@ -212,5 +245,5 @@ print(trust_engine.visualize(graph, graph_type="mermaid"))
     - Coverage: Uses a Cross-Encoder Reranker or LLM (default) to verify span support.
     - Consistency: Triggers $k$ asynchronous generation calls to measure semantic variance.
 - Confidence: Analyzes token-level logprobs during generation along with variance penalty.
-- Aggregation: A weighted sum calculates the raw score $[0, 1]$.
+- Aggregation: A weighted sum calculates the raw score [0, 1].
 - Decision Boundary: The raw score is mapped to RELIABLE, ACCEPTABLE, or UNRELIABLE based on defined thresholds.
