@@ -1,5 +1,5 @@
 # Trustifai 
-**🛡️Quantify, Visualize, and Explain Trust in RAG Applications.**
+**🛡️Quantify, Visualize, and Explain Trust in AI.**
 
 Trustifai is a Python-based observability engine designed to evaluate the trustworthiness of LLM responses and Retrieval-Augmented Generation (RAG) systems. Unlike simple evaluation frameworks that rely on a single "correctness" score, Trustifai computes a multi-dimensional **Trust Score** based on grounding, consistency, alignment, and diversity.
 
@@ -59,7 +59,7 @@ Create a .env file or export your API keys. Trustifai uses LiteLLM, so it suppor
   `Use this flow to score a query/answer pair against retrieved documents.`
 
 ```python
-from Trustifai import Trustifai, MetricContext
+from trustifai import Trustifai, MetricContext
 from langchain_core.documents import Document
 
 # 1. Define your RAG Context
@@ -72,7 +72,7 @@ context = MetricContext(
 )
 
 # 2. Initialize Engine
-trust_engine = Trustifai(context, "Trustifai/config_file.yaml")
+trust_engine = Trustifai(context)
 
 # 3. Calculate Score
 result = trust_engine.get_trust_score()
@@ -91,8 +91,8 @@ trust_engine.visualize(graph, graph_type="pyvis") # Saves to reasoning_graph.htm
 ```python
 from trustifai import Trustifai
 
-# Initialize with just the config (Context can be None for pure generation)
-trust_engine = Trustifai(context=None, config_path="Trustifai/config_file.yaml")
+# Initialize (Context will be None for pure generation)
+trust_engine = Trustifai()
 
 # Generate response
 result = trust_engine.generate(
@@ -109,14 +109,18 @@ print(f"Confidence: {result['metadata']['confidence_score']} ({result['metadata'
 ## ⚙️ Configuration
 Control the sensitivity of the evaluation using config_file.yaml.
 
-```yaml
-# config_file.yaml
+```python
+#custom config can be passed on using config_path
+trust_engine = Trustifai(context, config_path="config_file.yaml")
+```
+Refer: [config_file.yaml](config_file.yaml)
 
+```yaml
 # 1. Model Configuration (via LiteLLM)
 llm:
   type: "openai"
   params:
-    model_name: "gpt-4o"
+    model_name: "gpt-5"
 
 # 2. Thresholds (Strictness)
 metrics:
@@ -249,3 +253,4 @@ score_weights:
 
 ## TODO
 - [ ] Improve Tracing
+- [ ] Benchmark Testing

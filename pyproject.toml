@@ -45,3 +45,6 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["."]
+
+[tool.setuptools.exclude-package-data]
+"*" = ["*.ipynb", ".ipynb_checkpoints"]

@@ -35,7 +35,7 @@ class Trustifai:
         "source_diversity": SourceDiversityMetric,
     }
 
-    def __init__(self, context: MetricContext, config_path: str):
+    def __init__(self, context: MetricContext = None, config_path: str = "config_file.yaml"):
         self.context = context
         self.config = Config.from_yaml(config_path)
         self.service = ExternalService(self.config)

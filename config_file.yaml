@@ -68,13 +68,13 @@ metrics:
 score_weights:
   - type: "evidence_coverage"
     params:
-      weight: 0.45
+      weight: 0.40
   - type: "consistency"
     params:
       weight: 0.20
   - type: "source_diversity"
     params:
-      weight: 0.05
+      weight: 0.10
   - type: "semantic_drift"
     params:
       weight: 0.30
