@@ -5,6 +5,7 @@ Trustifai is a Python-based observability engine designed to evaluate the trustw
 
 It also includes **visualizations** to help showcase why a model output was deemed unreliable.
 
+![Build Status](https://github.com/aaryanverma/trustifai/actions/workflows/run-tests.yml/badge.svg)
 
 ## 📊 Key Metrics
 
