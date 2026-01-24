@@ -1,7 +1,7 @@
-# Trustifai 
+# TrustifAI 
 **🛡️Quantify, Visualize, and Explain Trust in AI.**
 
-Trustifai is a Python-based observability engine designed to evaluate the trustworthiness of LLM responses and Retrieval-Augmented Generation (RAG) systems. Unlike simple evaluation frameworks that rely on a single "correctness" score, Trustifai computes a multi-dimensional **Trust Score** based on grounding, consistency, alignment, and diversity.
+TrustifAI is a Python-based observability engine designed to evaluate the trustworthiness of LLM responses and Retrieval-Augmented Generation (RAG) systems. Unlike simple evaluation frameworks that rely on a single "correctness" score, TrustifAI computes a multi-dimensional **Trust Score** based on grounding, consistency, alignment, and diversity.
 
 It also includes **visualizations** to help showcase why a model output was deemed unreliable.
 
@@ -9,7 +9,7 @@ It also includes **visualizations** to help showcase why a model output was deem
 
 ## 📊 Key Metrics
 
-**Trustifai** evaluates trustworthiness using four orthogonal vectors. The final *Trust Score* is a weighted aggregation of these components.
+**TrustifAI** evaluates trustworthiness using four orthogonal vectors. The final *Trust Score* is a weighted aggregation of these components.
 
 ### Offline Metrics
 
@@ -28,7 +28,7 @@ It also includes **visualizations** to help showcase why a model output was deem
  
 ## 🚀 Installation
 
-Trustifai requires Python 3.10+.
+TrustifAI requires Python 3.10+.
 
 ```python
 pip install trustifai
@@ -52,7 +52,7 @@ pip install -r requirements.txt
 ```
 
 ## Environment Setup
-Create a .env file or export your API keys. Trustifai uses LiteLLM, so it supports OpenAI, Azure, Anthropic, Gemini, Mistral, and more. (check .env.example)
+Create a .env file or export your API keys. TrustifAI uses LiteLLM, so it supports OpenAI, Azure, Anthropic, Gemini, Mistral, and more. (check .env.example)
 
 ## ⚡ Quick Start
 
@@ -88,7 +88,7 @@ trust_engine.visualize(graph, graph_type="pyvis") # Saves to reasoning_graph.htm
 
 **2. Generate with Confidence**
 
-  `Use Trustifai to generate a response and immediately get a confidence score based on token log probabilities.`
+  `Use TrustifAI to generate a response and immediately get a confidence score based on token log probabilities.`
 
 ```python
 from trustifai import Trustifai
@@ -150,7 +150,7 @@ score_weights:
 
 ## 🕸️ Reasoning Graphs
 
-Trustifai doesn't just give you a number; it gives you a map. The Reasoning Graph is a directed acyclic graph (DAG) representing the evaluation logic.
+TrustifAI doesn't just give you a number; it gives you a map. The Reasoning Graph is a directed acyclic graph (DAG) representing the evaluation logic.
 - Nodes: Represent individual metrics (Green=High Trust, Red=Low Trust).
 - Edges: Represent the flow of data into the final aggregation.
 - Interactive: The generated HTML uses PyVis for physics-based interaction.
@@ -168,7 +168,7 @@ print(trust_engine.visualize(graph, graph_type="mermaid"))
 ```
 ![mermaid diagram](assets/image-1.png)
 
-## 🧩 Extending Trustifai (Custom Metrics)
+## 🧩 Extending TrustifAI (Custom Metrics)
 
 You can plug in custom evaluation logic without modifying the core library.
 
@@ -256,3 +256,4 @@ score_weights:
 ## TODO
 - [ ] Improve Tracing
 - [ ] Benchmark Testing
+- [ ] Support for GraphRAG
