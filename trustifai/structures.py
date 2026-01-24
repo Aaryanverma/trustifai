@@ -22,8 +22,8 @@ class TrustLevel(Enum):
     HIGH = "High Trust"
     MODERATE = "Moderate Trust"
     LOW = "Low Trust"
-    STABLE = "Stable Consistency (Reliable)"
-    FRAGILE = "Fragile (Acceptable)"
+    STABLE = "Stable Consistency"
+    FRAGILE = "Fragile Consistency"
     NA = "N/A"
 
 # --- Pydantic Models (Validation) ---

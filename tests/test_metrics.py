@@ -2,13 +2,13 @@ import numpy as np
 from unittest.mock import MagicMock
 from trustifai.metrics import (
     EvidenceCoverageMetric, 
-    SemanticAlignmentMetric, 
+    SemanticDriftMetric, 
     EpistemicConsistencyMetric,
     SourceDiversityMetric,
     ConfidenceMetric
 )
 
-def test_semantic_alignment(basic_context, mock_service):
+def test_semantic_drift(basic_context, mock_service):
     # Setup embeddings to be identical
     basic_context.answer_embeddings = np.array([1, 0])
     basic_context.document_embeddings = np.array([[1, 0], [1, 0]])
@@ -20,7 +20,7 @@ def test_semantic_alignment(basic_context, mock_service):
     config.thresholds.MODERATE_ALIGNMENT = 0.7
     config.thresholds.WEAK_ALIGNMENT = 0.5
 
-    metric = SemanticAlignmentMetric(basic_context, mock_service, config)
+    metric = SemanticDriftMetric(basic_context, mock_service, config)
     result = metric.calculate()
 
     assert result.score > 0.99
@@ -34,7 +34,7 @@ def test_consistency(basic_context, mock_service):
     config.thresholds.FRAGILE_CONSISTENCY = 0.7
     
     # Mock 2 generated samples identical to answer
-    mock_service.llm_call.return_value = {"response": basic_context.answer}
+    mock_service.llm_call_async.return_value = {"response": basic_context.answer}
     # Mock embeddings to return unit vectors
     mock_service.embedding_call.return_value = [1, 0]
     

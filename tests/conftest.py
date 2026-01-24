@@ -21,13 +21,13 @@ def sample_config_yaml():
         "reranker": {"type": "cohere", "params": {"model_name": "rerank-v3.5"}},
         "metrics": [
             {"type": "evidence_coverage", "enabled": True, "params": {"strategy": "llm"}},
-            {"type": "semantic_alignment", "enabled": True},
+            {"type": "semantic_drift", "enabled": True},
             {"type": "consistency", "enabled": True},
             {"type": "source_diversity", "enabled": True}
         ],
         "score_weights": [
             {"type": "evidence_coverage", "params": {"weight": 0.4}},
-            {"type": "semantic_alignment", "params": {"weight": 0.3}},
+            {"type": "semantic_drift", "params": {"weight": 0.3}},
             {"type": "consistency", "params": {"weight": 0.2}},
             {"type": "source_diversity", "params": {"weight": 0.1}}
         ]
@@ -58,12 +58,12 @@ def mock_service():
 def basic_context():
     """Provides a standard MetricContext with dummy data"""
     docs = [
-        Document(page_content="Paris is the capital of France.", metadata={"source": "wiki"}),
-        Document(page_content="France's capital city is Paris.", metadata={"source": "geo_db"})
+        Document(page_content="Delhi is the capital of India.", metadata={"source": "wiki"}),
+        Document(page_content="India's capital is Delhi.", metadata={"source": "geo_db"})
     ]
     return MetricContext(
-        query="What is the capital of France?",
-        answer="The capital of France is Paris.",
+        query="What is the capital of India?",
+        answer="The capital of India is Delhi.",
         documents=docs,
         query_embeddings=np.array([0.1, 0.2, 0.3]),
         answer_embeddings=np.array([0.1, 0.2, 0.3]),

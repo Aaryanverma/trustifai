@@ -4,15 +4,17 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "trustifai"
-version = "0.1.1"
+version = "0.1.2"
 description = "Trustifai: A Comprehensive Framework for AI Trustworthiness"
 readme = "README.md"
 authors = [
-    { name = "Aaryan Verma", email = "aaryan_verma@outlook.com" }
+    { name = "Aaryan Verma" }
 ]
 requires-python = ">=3.10"
 dependencies = [
+    "ipython==8.12.3",
     "litellm==1.81.1",
+    "nest_asyncio==1.6.0",
     "nltk==3.8.1",
     "numpy==2.4.1",
     "pydantic==2.12.5",
@@ -23,6 +25,9 @@ dependencies = [
     "tenacity==8.2.3"
 ]
 license = { text = "MIT" }
+
+[project.optional-dependencies]
+tracing = ["mlflow==3.8.1"]
 
 classifiers = [
     "License :: OSI Approved :: MIT License",

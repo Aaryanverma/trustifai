@@ -26,8 +26,9 @@ class GraphVisualizer:
         "metric": "dot",
     }
 
-    def __init__(self, graph: ReasoningGraph):
+    def __init__(self, graph: ReasoningGraph, config=None):
         self.graph = graph
+        self.config = config
 
     def visualize(self, graph_type: str = "pyvis", **kwargs):
         visualizers = {
@@ -48,7 +49,7 @@ class GraphVisualizer:
             lines.append(f"    {edge.source} --> {edge.target}")
         for node in self.graph.nodes:
             if node.score is not None:
-                color = self._get_mermaid_color(node.score, node.label)
+                color = self._get_mermaid_color(node.score, node.label, node.node_id)
                 lines.append(f"    style {node.node_id} fill:{color},color:#000000")
         lines.append("```")
         return "\n".join(lines)
@@ -67,11 +68,12 @@ class GraphVisualizer:
             label += f"<br/>{node.label}"
         return label
 
-    @staticmethod
-    def _get_mermaid_color(score: float, label: str) -> str:
-        if score >= 0.8: return "#2ecc71"
-        elif score >= 0.6: return "#f39c12"
-        else: return "#95a5a6" if label in {None, "N/A"} else "#ff6b6b"
+    def _get_mermaid_color(self, score: float, label: str, node_id: str = None) -> str:
+        if label in {None, "N/A"}: return "#95a5a6"
+        thresholds = self._get_metric_thresholds(node_id)
+        if score >= thresholds[0]: return "#2ecc71"
+        elif score >= thresholds[1]: return "#f39c12"
+        else: return "#ff6b6b"
 
     def _pyvis_visualization(self, output_file: str = "reasoning_graph.html"):
         try:
@@ -123,7 +125,8 @@ class GraphVisualizer:
         score = source_node.score
         color = self.COLORS["no_score"]
         if score is not None:
-            color = self.COLORS["edge_high"] if score >= 0.8 else (self.COLORS["edge_medium"] if score >= 0.6 else self.COLORS["edge_low"])
+            thresholds = self._get_metric_thresholds(source_node.node_id)
+            color = self.COLORS["edge_high"] if score >= thresholds[0] else (self.COLORS["edge_medium"] if score >= thresholds[1] else self.COLORS["edge_low"])
         
         return edge.source, edge.target, {"title": edge.relationship, "label": edge.relationship, "color": color, "width": 2 if edge.relationship == "decides" else 1}
 
@@ -140,4 +143,27 @@ class GraphVisualizer:
             return self.COLORS["reliable_decision"] if node.label == "RELIABLE" else (self.COLORS["acceptable_decision"] if "ACCEPTABLE" in node.label else self.COLORS["unreliable_decision"])
         elif node.node_type == "aggregation": return self.COLORS["aggregation"]
         else:
-            return self.COLORS["metric_high"] if node.score >= 0.8 else (self.COLORS["metric_medium"] if node.score >= 0.6 else self.COLORS["metric_low"])
+            thresholds = self._get_metric_thresholds(node.node_id)
+            return self.COLORS["metric_high"] if node.score >= thresholds[0] else (self.COLORS["metric_medium"] if node.score >= thresholds[1] else self.COLORS["metric_low"])
+
+    def _get_metric_thresholds(self, node_id: str) -> Tuple[float, float]:
+        """Get high/medium thresholds for a metric from config, fallback to defaults"""
+        if not self.config or not node_id:
+            return (0.8, 0.6)
+        
+        metric_config = next((m for m in self.config.metrics if m.type == node_id), None)
+        if not metric_config:
+            return (0.8, 0.6)
+        
+        params = metric_config.params or {}
+        # Map metric-specific threshold names to (high, medium) tuple
+        threshold_map = {
+            "evidence_coverage": (params.get("STRONG_GROUNDING", 0.85), params.get("PARTIAL_GROUNDING", 0.7)),
+            "consistency": (params.get("STABLE_CONSISTENCY", 0.85), params.get("FRAGILE_CONSISTENCY", 0.60)),
+            "semantic_drift": (params.get("STRONG_ALIGNMENT", 0.85), params.get("PARTIAL_ALIGNMENT", 0.60)),
+            "source_diversity": (params.get("HIGH_DIVERSITY", 0.85), params.get("MODERATE_DIVERSITY", 0.60)),
+            "trust_aggregation": (self.config.thresholds.RELIABLE_TRUST if hasattr(self.config, 'thresholds') else 0.8,
+                                 self.config.thresholds.ACCEPTABLE_TRUST if hasattr(self.config, 'thresholds') else 0.6)
+        }
+        
+        return threshold_map.get(node_id, (0.8, 0.6))

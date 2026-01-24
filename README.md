@@ -175,7 +175,7 @@ metrics:
 score_weights:
   - type: "evidence_coverage"
     params: { weight: 0.40 } # Highest priority on factual accuracy
-  - type: "semantic_alignment"
+  - type: "semantic_drift"
     params: { weight: 0.30 }
   - type: "consistency"
     params: { weight: 0.20 }

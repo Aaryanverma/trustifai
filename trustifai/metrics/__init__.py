@@ -1,7 +1,7 @@
 from trustifai.metrics.base import BaseMetric
 from trustifai.metrics.offline_metrics import (
     EvidenceCoverageMetric,
-    SemanticAlignmentMetric,
+    SemanticDriftMetric,
     EpistemicConsistencyMetric,
     SourceDiversityMetric
 )
@@ -11,7 +11,7 @@ from trustifai.metrics.calculators import ThresholdEvaluator
 __all__ = [
     "BaseMetric",
     "EvidenceCoverageMetric",
-    "SemanticAlignmentMetric",
+    "SemanticDriftMetric",
     "EpistemicConsistencyMetric",
     "SourceDiversityMetric",
     "ConfidenceMetric",

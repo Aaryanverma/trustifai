@@ -61,7 +61,7 @@ class ThresholdEvaluator:
             return "Partial Grounding", "Some claims may not be fully supported."
         return "Likely Hallucinated Answer", "Many claims lack support from source documents."
     
-    def evaluate_alignment(self, score: float) -> Tuple[str, str]:
+    def evaluate_drift(self, score: float) -> Tuple[str, str]:
         if score >= self.thresholds.STRONG_ALIGNMENT:
             return "Strong Alignment", "Answer semantically aligned with source documents."
         elif score >= self.thresholds.PARTIAL_ALIGNMENT:
@@ -75,10 +75,10 @@ class ThresholdEvaluator:
             return TrustLevel.FRAGILE.value, "Model shows some variation but maintains core consistency."
         return TrustLevel.UNRELIABLE.value, "Model produces highly inconsistent responses."
     
-    def evaluate_diversity(self, count: int) -> Tuple[str, str]:
-        if count >= self.thresholds.HIGH_DIVERSITY:
+    def evaluate_diversity(self, score: float) -> Tuple[str, str]:
+        if score >= self.thresholds.HIGH_DIVERSITY:
             return TrustLevel.HIGH.value, "Multiple independent sources used for answer."
-        elif count >= self.thresholds.MODERATE_DIVERSITY:
+        elif score >= self.thresholds.MODERATE_DIVERSITY:
             return TrustLevel.MODERATE.value, "Limited corroboration from multiple sources."
         return TrustLevel.LOW.value, "Single source used for answer."
     

@@ -15,7 +15,7 @@ from trustifai.services import ExternalService
 from trustifai.metrics import (
     BaseMetric,
     EvidenceCoverageMetric,
-    SemanticAlignmentMetric,
+    SemanticDriftMetric,
     EpistemicConsistencyMetric,
     SourceDiversityMetric,
     ConfidenceMetric,
@@ -30,7 +30,7 @@ class Trustifai:
     # Central Registry for metrics
     _metric_registry: Dict[str, Type[BaseMetric]] = {
         "evidence_coverage": EvidenceCoverageMetric,
-        "semantic_alignment": SemanticAlignmentMetric,
+        "semantic_drift": SemanticDriftMetric,
         "consistency": EpistemicConsistencyMetric,
         "source_diversity": SourceDiversityMetric,
     }
@@ -143,6 +143,16 @@ class Trustifai:
             logprobs, self.threshold_evaluator
         )
 
+        # Log online metrics to MLflow
+        if self.config.tracing.params['enabled']:
+            print("Logging online confidence metrics to MLflow...")
+            import mlflow
+            if mlflow.active_run():
+                mlflow.log_metrics({
+                    "online/confidence_score": confidence_result["score"]
+                })
+                mlflow.log_param("online/confidence_label", confidence_result["label"])
+
         return {
             "response": response_text,
             "metadata": {
@@ -153,12 +163,11 @@ class Trustifai:
             },
         }
 
-    # Individual accessors (only work if metric is enabled)
     def evidence_coverage(self) -> Dict:
         return self.metrics.get("evidence_coverage").calculate().to_dict()
 
-    def semantic_alignment(self) -> Dict:
-        return self.metrics.get("semantic_alignment").calculate().to_dict()
+    def semantic_drift(self) -> Dict:
+        return self.metrics.get("semantic_drift").calculate().to_dict()
 
     def epistemic_consistency(self) -> Dict:
         return self.metrics.get("consistency").calculate().to_dict()
@@ -202,6 +211,10 @@ class Trustifai:
             decision = "ACCEPTABLE (WITH CAUTION)"
         else:
             decision = "UNRELIABLE"
+
+        # Log categorized metrics to MLflow
+        offline_metric_keys = set(self._metric_registry.keys())
+        self.service.log_metrics_by_category(metrics_data, score, decision, offline_metric_keys)
 
         return {
             "score": round(score, 2),
@@ -288,5 +301,5 @@ class Trustifai:
         return edges
 
     def visualize(self, graph: ReasoningGraph, graph_type: str = "pyvis"):
-        visualizer = GraphVisualizer(graph)
+        visualizer = GraphVisualizer(graph, self.config)
         return visualizer.visualize(graph_type)

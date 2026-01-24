@@ -39,11 +39,11 @@ class MetricThresholds(BaseModel):
     STRONG_ALIGNMENT: float = 0.85
     PARTIAL_ALIGNMENT: float = 0.60
     STABLE_CONSISTENCY: float = 0.85
-    FRAGILE_CONSISTENCY: float = 0.65
-    HIGH_DIVERSITY: int = 3
-    MODERATE_DIVERSITY: int = 2
+    FRAGILE_CONSISTENCY: float = 0.60
+    HIGH_DIVERSITY: float = 0.85
+    MODERATE_DIVERSITY: float = 0.60
     RELIABLE_TRUST: float = 0.80
-    ACCEPTABLE_TRUST: float = 0.65
+    ACCEPTABLE_TRUST: float = 0.60
     HIGH_CONFIDENCE: float = 0.90
     MEDIUM_CONFIDENCE: float = 0.70
     
@@ -55,7 +55,7 @@ class TrustWeights(BaseModel):
     Defaults to 0.0 to allow for disabled metrics.
     """
     evidence_coverage: float = 0.0
-    semantic_alignment: float = 0.0
+    semantic_drift: float = 0.0
     consistency: float = 0.0
     source_diversity: float = 0.0
     confidence: float = 0.0

@@ -1,5 +1,6 @@
-langchain_core==1.2.7
+ipython==8.12.3
 litellm==1.81.1
+nest_asyncio==1.6.0
 nltk==3.8.1
 numpy==2.4.1
 pydantic==2.12.5
@@ -7,5 +8,4 @@ pytest==8.3.4
 python-dotenv==1.2.1
 pyvis==0.3.2
 PyYAML==6.0.3
-setuptools==69.2.0
 tenacity==8.2.3
