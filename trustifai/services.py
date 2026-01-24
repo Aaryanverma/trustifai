@@ -5,15 +5,43 @@ Service layer for External APIs (LLMs, Embeddings, Rerankers).
 
 from typing import Optional, List, Any
 import numpy as np
-from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+)
 from litellm import completion, embedding, rerank, acompletion
 import litellm
 from dotenv import load_dotenv
 from trustifai.config import Config
 from IPython import get_ipython
-import mlflow
+import httpx
+import requests
+import logging
+
+logger = logging.getLogger(__name__)
+
+try:
+    import mlflow
+
+    MLFLOW_AVAILABLE = True
+except Exception as e:
+    MLFLOW_AVAILABLE = False
+    mlflow = None
 
 litellm.drop_params = True
+
+RETRYABLE_EXCEPTIONS = (
+    TimeoutError,
+    ConnectionError,
+    OSError,
+    httpx.ConnectError,
+    httpx.ReadTimeout,
+    requests.Timeout,
+    litellm.exceptions.Timeout,
+    litellm.exceptions.APIConnectionError,
+)
 
 
 def is_notebook() -> bool:
@@ -30,16 +58,30 @@ def is_notebook() -> bool:
         return False  # Probably standard Python interpreter
 
 
+def empty_decorator(fn):
+    return fn
+
+
+TRACE_DECORATOR = (
+    mlflow.trace
+    if MLFLOW_AVAILABLE and getattr(mlflow, "trace", None)
+    else empty_decorator
+)
+
+
 class ExternalService:
     def __init__(self, config: Config):
         self.config = config
         if self.config.env_file:
             load_dotenv(self.config.env_file)
-            print("Environment variables loaded.")
+            logger.info("Environment variables loaded.")
         self.configure_tracing()
 
     def configure_tracing(self):
         """Initialize tracing if enabled in config"""
+        if not MLFLOW_AVAILABLE:
+            return
+
         if self.config.tracing.params["enabled"]:
             mlflow.litellm.autolog(silent=True)
             mlflow.set_tracking_uri(self.config.tracing.params["tracking_uri"])
@@ -54,11 +96,14 @@ class ExternalService:
             mlflow.litellm.autolog(disable=True, silent=True)
 
     @staticmethod
-    @mlflow.trace
+    @TRACE_DECORATOR
     def log_metrics_by_category(
         metrics_data: dict, trust_score: float, decision: str, offline_metric_keys: set
     ):
         """Log metrics to MLflow categorized by type"""
+        if not MLFLOW_AVAILABLE:
+            return
+
         # Categorize metrics
         offline_metrics = {}
         online_metrics = {}
@@ -108,7 +153,10 @@ class ExternalService:
         return str(document)
 
     @retry(
-        stop=stop_after_attempt(3), wait=wait_exponential(multiplier=2, min=3, max=90)
+        retry=retry_if_exception_type(RETRYABLE_EXCEPTIONS),
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=2, min=3, max=90),
+        reraise=True,
     )
     def llm_call(
         self, system_prompt: str = None, prompt: str = None, **kwargs
@@ -149,10 +197,20 @@ class ExternalService:
                 "logprobs": response_logprobs,
             }
 
+        except RETRYABLE_EXCEPTIONS as e:
+            logger.exception(f"Retryable error (will retry): {e}")
+            raise
+
         except Exception as e:
-            print(f"Error calling LLM: {e}")
+            logger.exception("Error calling LLM:", e)
             return {"response": None, "logprobs": None}
 
+    @retry(
+        retry=retry_if_exception_type(RETRYABLE_EXCEPTIONS),
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=2, min=3, max=90),
+        reraise=True,
+    )
     async def llm_call_async(
         self, system_prompt: str = None, prompt: str = None, **kwargs
     ) -> Optional[dict]:
@@ -192,10 +250,20 @@ class ExternalService:
                 "logprobs": response_logprobs,
             }
 
+        except RETRYABLE_EXCEPTIONS as e:
+            logger.exception(f"Retryable error (will retry): {e}")
+            raise
+
         except Exception as e:
-            print(f"Error calling LLM asynchronously: {e}")
+            logger.exception("Error calling LLM asynchronously:", e)
             return {"response": None, "logprobs": None}
 
+    @retry(
+        retry=retry_if_exception_type(RETRYABLE_EXCEPTIONS),
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=2, min=3, max=90),
+        reraise=True,
+    )
     def embedding_call(self, text: str) -> Optional[np.ndarray]:
         """Safely call embedding model"""
         cfg = self.config.embeddings
@@ -211,14 +279,23 @@ class ExternalService:
                 input_type=input_type,
             )
             return response.data[0]["embedding"]
+        except RETRYABLE_EXCEPTIONS as e:
+            logger.exception(f"Retryable error (will retry): {e}")
+            raise
         except Exception as e:
-            print(f"Error calling embedding: {e}")
-            return []
+            logger.exception(f"Error calling embedding: {e}")
+            return None
 
+    @retry(
+        retry=retry_if_exception_type(RETRYABLE_EXCEPTIONS),
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=2, min=3, max=90),
+        reraise=True,
+    )
     def reranker_call(self, query: str, documents: List[str]):
         """Rerank documents based on similarity to query"""
         if not self.config.reranker or not self.config.reranker.type:
-            print("Warning: Reranker call attempted but no reranker configured.")
+            logger.warning("Warning: Reranker call attempted but no reranker configured.")
             return []
 
         cfg = self.config.reranker
@@ -233,6 +310,9 @@ class ExternalService:
                 top_n=top_n,
             )
             return response.results
+        except RETRYABLE_EXCEPTIONS as e:
+            logger.exception(f"Retryable error (will retry): {e}")
+            raise
         except Exception as e:
-            print(f"Error calling reranker: {e}")
+            logger.exception(f"Error calling reranker: {e}")
             return []

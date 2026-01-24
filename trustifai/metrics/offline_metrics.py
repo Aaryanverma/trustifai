@@ -19,7 +19,9 @@ from trustifai.services import ExternalService, is_notebook
 from trustifai.metrics.calculators import SourceIdentifier
 from trustifai.metrics.base import BaseMetric
 import asyncio
+import logging
 
+logger = logging.getLogger(__name__)
 
 class EvidenceCoverageMetric(BaseMetric):
     def __init__(
@@ -46,7 +48,7 @@ class EvidenceCoverageMetric(BaseMetric):
                 return RerankerBasedEvidenceStrategy(
                     self.context, self.service, self.config
                 )
-            print(
+            logger.warning(
                 "Warning: Evidence Coverage strategy set to 'reranker' but global reranker config is missing/disabled. Falling back to LLM."
             )
             return LLMBasedEvidenceStrategy(self.context, self.service, self.config)

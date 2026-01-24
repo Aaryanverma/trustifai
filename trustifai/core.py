@@ -144,14 +144,14 @@ class Trustifai:
         )
 
         # Log online metrics to MLflow
-        if self.config.tracing.params['enabled']:
-            print("Logging online confidence metrics to MLflow...")
-            import mlflow
-            if mlflow.active_run():
-                mlflow.log_metrics({
-                    "online/confidence_score": confidence_result["score"]
-                })
-                mlflow.log_param("online/confidence_label", confidence_result["label"])
+        if self.config.tracing and self.config.tracing.params.get('enabled', False):
+            try:
+                import mlflow
+                if mlflow.active_run():
+                    mlflow.log_metrics({"online/confidence_score": confidence_result["score"]})
+                    mlflow.log_param("online/confidence_label", confidence_result["label"])
+            except ImportError:
+                pass
 
         return {
             "response": response_text,
@@ -213,8 +213,12 @@ class Trustifai:
             decision = "UNRELIABLE"
 
         # Log categorized metrics to MLflow
-        offline_metric_keys = set(self._metric_registry.keys())
-        self.service.log_metrics_by_category(metrics_data, score, decision, offline_metric_keys)
+        if self.config.tracing and self.config.tracing.params.get('enabled', False):
+            try:
+                offline_metric_keys = set(self._metric_registry.keys())
+                self.service.log_metrics_by_category(metrics_data, score, decision, offline_metric_keys)
+            except ImportError:
+                pass
 
         return {
             "score": round(score, 2),

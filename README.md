@@ -246,3 +246,6 @@ score_weights:
 - Confidence: Analyzes token-level logprobs during generation along with variance penalty.
 - Aggregation: A weighted sum calculates the raw score [0, 1].
 - Decision Boundary: The raw score is mapped to RELIABLE, ACCEPTABLE, or UNRELIABLE based on defined thresholds.
+
+## TODO
+- [ ] Improve Tracing
