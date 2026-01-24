@@ -8,9 +8,9 @@ tracing:
     experiment_name: "trustifai_experiment"
 
 llm:
-  type: "openai" #openai, huggingface, gemini, mistral, ollama, azure_ai etc. (LiteLLM completion models)
+  type: "mistral" #openai, huggingface, gemini, mistral, ollama, azure_ai etc. (LiteLLM completion models)
   params:
-    model_name: "gpt-5.2"
+    model_name: "mistral-large-latest"
   kwargs:
     temperature: 0.1
     max_tokens: 4096

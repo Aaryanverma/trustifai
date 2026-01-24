@@ -132,3 +132,12 @@ def test_all_zero_weights_raises_error(basic_context, sample_config_yaml, mock_s
     with pytest.raises(ValueError, match="all weights are zero"):
         engine.get_trust_score()
 
+def test_generate_error_handling(sample_config_yaml, mock_service):
+    engine = Trustifai(None, sample_config_yaml)
+    engine.service = mock_service
+    
+    # Force failure
+    mock_service.llm_call.return_value = None
+    
+    result = engine.generate("test")
+    assert result['metadata']['error'] == "LLM call failed"

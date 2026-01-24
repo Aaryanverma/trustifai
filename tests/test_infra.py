@@ -1,6 +1,11 @@
 import pytest
 from trustifai.config import Config
-
+import asyncio
+from trustifai.services import ExternalService
+from trustifai.metrics.offline_metrics import EpistemicConsistencyMetric
+from unittest.mock import patch, MagicMock, AsyncMock
+from langchain_core.documents import Document as LangchainDocument
+from llama_index.core import Document as LlamaIndexDocument
 # --- Config Tests ---
 
 def test_config_loading(sample_config_yaml):
@@ -94,3 +99,92 @@ def test_reranker_empty_result(mock_service):
     docs = mock_service.extract_document([])
 
     assert docs == ''
+
+@patch("trustifai.services.completion") 
+@patch("trustifai.services.embedding")  
+@patch("trustifai.services.acompletion") 
+@patch("trustifai.services.rerank")
+def test_real_service_calls(mock_embed, mock_completion, mock_acompletion, mock_rerank, sample_config_yaml):
+    config = Config.from_yaml(sample_config_yaml)
+    service = ExternalService(config)
+    mock_completion.return_value.choices = [
+        MagicMock(message=MagicMock(content="Mocked Response"), logprobs=None)
+    ]
+    mock_acompletion.return_value.choices = [
+        MagicMock(message=MagicMock(content="Mocked Async Response"), logprobs=None)
+    ]
+    mock_embed.return_value.data = [{"embedding": [0.1, 0.2, 0.3]}]
+    mock_rerank.return_value.result = ["Doc A", "Doc B"]
+
+    service.llm_call(prompt="test")
+    service.embedding_call("text")
+    service.reranker_call("query", ["Doc A", "Doc B"])
+    asyncio.run(service.llm_call_async(prompt="async test"))
+
+    assert mock_completion.called
+    assert mock_embed.called
+    assert mock_rerank.called
+    assert mock_acompletion.called
+
+@patch("trustifai.metrics.offline_metrics.is_notebook")
+def test_consistency_async_environment(mock_is_notebook, basic_context, mock_service):
+    # Setup
+    mock_service.llm_call_async = AsyncMock(return_value={"response": "test"})
+    mock_service.embedding_call.return_value = [1.0, 0.0]
+    config = MagicMock()
+    config.k_samples = 2
+    config.thresholds = MagicMock()
+    config.thresholds.STABLE_CONSISTENCY = 0.9
+    config.thresholds.FRAGILE_CONSISTENCY = 0.7
+
+    # Case 1: Simulate Notebook (Asyncio event loop logic)
+    mock_is_notebook.return_value = True
+    metric = EpistemicConsistencyMetric(basic_context, mock_service, config)
+    metric.calculate() # This hits the 'if is_notebook()' block
+
+    # Case 2: Simulate Script (Standard asyncio.run logic)
+    mock_is_notebook.return_value = False
+    metric = EpistemicConsistencyMetric(basic_context, mock_service, config)
+    metric.calculate() # This hits the 'else' block
+
+def test_exception_handling_in_service_calls(mock_service):
+    # LLM Call Exception
+    mock_service.llm_call.side_effect = Exception("LLM Failure")
+    with pytest.raises(Exception, match="LLM Failure"):
+        mock_service.llm_call("Test prompt")
+
+    # Async LLM Call Exception
+    mock_service.llm_call_async.side_effect = Exception("Async LLM Failure")
+    with pytest.raises(Exception, match="Async LLM Failure"):
+        asyncio.run(mock_service.llm_call_async("Test prompt"))
+
+    # Embedding Call Exception
+    mock_service.embedding_call.side_effect = Exception("Embedding Failure")
+    with pytest.raises(Exception, match="Embedding Failure"):
+        mock_service.embedding_call("Test text")
+
+    # Reranker Call Exception
+    mock_service.reranker_call.side_effect = Exception("Reranker Failure")
+    with pytest.raises(Exception, match="Reranker Failure"):
+        mock_service.reranker_call(["Doc1", "Doc2"], "Test query")
+
+def test_extract_document_various_inputs(mock_service):
+    # Test with string input
+    assert mock_service.extract_document("Simple text") == "Simple text"
+
+    # Test with dict input
+    assert mock_service.extract_document({"text": "Dict text"}) == "Dict text"
+
+    # Test with list input
+    assert mock_service.extract_document(["Line 1", "Line 2"]) == "Line 1\nLine 2"
+
+    # Test with None input
+    assert mock_service.extract_document(None) == ""
+
+    # Test with Langchain Document
+    langchain_doc = LangchainDocument(page_content="Langchain content", metadata={"source": "langchain"})
+    assert mock_service.extract_document(langchain_doc) == "Langchain content"
+
+    # Test with LlamaIndex Document
+    llamaindex_doc = LlamaIndexDocument(text="LlamaIndex content", metadata={"source": "llama"})
+    assert mock_service.extract_document(llamaindex_doc) == "LlamaIndex content"
