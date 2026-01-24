@@ -1,6 +1,7 @@
 import pytest
 from trustifai.metrics.calculators import CosineSimCalculator, ThresholdEvaluator, SourceIdentifier
 from unittest.mock import MagicMock
+import math
 
 def test_cosine_similarity():
     calc = CosineSimCalculator()
@@ -57,3 +58,9 @@ def test_source_identifier(mock_service):
     mock_service.extract_document.return_value = "content"
     res = sid.resolve_source_id(doc, mock_service)
     assert "content_hash" in res
+
+def test_cosine_similarity_nan():
+    calc = CosineSimCalculator()
+    sim = calc.calculate([0, 0], [0, 0])
+
+    assert math.isnan(sim) or sim == 0.0

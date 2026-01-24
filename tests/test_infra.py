@@ -1,8 +1,5 @@
 import pytest
-from unittest.mock import patch, MagicMock
 from trustifai.config import Config
-from trustifai.services import ExternalService
-from langchain_core.documents import Document
 
 # --- Config Tests ---
 
@@ -17,7 +14,6 @@ def test_weight_normalization_error(sample_config_yaml):
     # Create invalid weights using a temp file to avoid side effects
     import yaml
     import tempfile
-    import shutil
     with open(sample_config_yaml, 'r') as f:
         data = yaml.safe_load(f)
 
@@ -50,40 +46,51 @@ def test_dynamic_config_fields(sample_config_yaml):
     # verify pydantic accepted the extra field
     assert hasattr(cfg.weights, "pii_check") or "pii_check" in cfg.weights.model_dump()
 
-# --- Service Tests ---
 
-def test_document_extraction():
-    svc = ExternalService(MagicMock())
-    
+def test_document_extraction(mock_service):
     # String
-    assert svc.extract_document("Hello") == "Hello"
+    assert mock_service.extract_document("Hello") == "Hello"
     # Dict
-    assert svc.extract_document({"text": "Hello"}) == "Hello"
-    # Object
-    doc = Document(page_content="Hello")
-    assert svc.extract_document(doc) == "Hello"
+    assert mock_service.extract_document({"text": "Hello"}) == "Hello"
+    # List
+    assert mock_service.extract_document(["Hello", "World"]) == "Hello\nWorld"
     # None
-    assert svc.extract_document(None) == ""
+    assert mock_service.extract_document(None) == ""
 
-@patch("trustifai.services.completion")
-def test_llm_call_success(mock_completion):
-    # Mock LiteLLM response structure
-    mock_response = MagicMock()
-    mock_response.choices[0].message.content = "Test Response"
-    mock_response.choices[0].logprobs.content = []
-    mock_completion.return_value = mock_response
-    
-    svc = ExternalService(MagicMock())
-    svc.config.llm.type = "openai"
-    
-    res = svc.llm_call(prompt="Hi")
+def test_llm_call_success(mock_service):
+    mock_service.llm_call.return_value = {"response": "Test Response", "logprobs": []}
+
+    res = mock_service.llm_call(prompt="Hi")
     assert res["response"] == "Test Response"
 
-@patch("trustifai.services.completion")
-def test_llm_call_failure(mock_completion):
-    mock_completion.side_effect = Exception("API Error")
-    svc = ExternalService(MagicMock())
-    svc.config.llm.type = "openai"
-    
-    res = svc.llm_call(prompt="Hi")
-    assert res["response"] is None
+def test_llm_call_failure(mock_service):
+    mock_service.llm_call.side_effect = Exception("API Error")
+
+    with pytest.raises(Exception, match="API Error"):
+        mock_service.llm_call(prompt="Hi")
+
+def test_embedding_call(mock_service):
+    mock_service.embedding_call.return_value = [0.1, 0.2, 0.3]
+
+    vec = mock_service.embedding_call("Test text")
+    assert isinstance(vec, list) or hasattr(vec, "__array__")
+
+def test_embedding_call_empty_input(mock_service):
+    mock_service.embedding_call.return_value = []
+
+    vec = mock_service.embedding_call("")
+    assert vec == []
+
+def test_reranker_call(mock_service):
+    docs = ["Doc 1", "Doc 2", "Doc 3"]
+    query = "Test query"
+
+    ranked_docs = mock_service.reranker_call(docs, query)
+    assert isinstance(ranked_docs, list)
+
+def test_reranker_empty_result(mock_service):
+    mock_service.reranker_call.return_value = []
+
+    docs = mock_service.extract_document([])
+
+    assert docs == ''

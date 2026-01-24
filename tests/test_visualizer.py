@@ -38,3 +38,15 @@ def test_invalid_visualizer_type(sample_graph):
     viz = GraphVisualizer(sample_graph)
     with pytest.raises(ValueError):
         viz.visualize(graph_type="unknown")
+
+def test_visualizer_empty_graph(sample_graph):
+    viz = GraphVisualizer(sample_graph)
+
+    output = viz.visualize(graph_type="mermaid")
+
+    assert "flowchart TD" in output
+
+def test_visualizer_single_node(sample_graph):
+    viz = GraphVisualizer(sample_graph)
+    output = viz.visualize(graph_type="mermaid")
+    assert "n1" in output

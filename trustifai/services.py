@@ -133,9 +133,16 @@ class ExternalService:
         """Helper to extract text content from various document formats"""
         if document is None:
             return ""
-        if isinstance(document, list):
-            document = document[0]
-        if isinstance(document, dict):
+        elif isinstance(document, list):
+            if len(document) == 0:
+                return ""
+            elif len(document) == 1:
+                document = document[0]
+            else:
+                return "\n".join(
+                    [ExternalService.extract_document(doc) for doc in document]
+                )
+        elif isinstance(document, dict):
             # Try common keys
             for key in ["page_content", "text", "content", "output", "document"]:
                 if key in document:
@@ -295,7 +302,9 @@ class ExternalService:
     def reranker_call(self, query: str, documents: List[str]):
         """Rerank documents based on similarity to query"""
         if not self.config.reranker or not self.config.reranker.type:
-            logger.warning("Warning: Reranker call attempted but no reranker configured.")
+            logger.warning(
+                "Warning: Reranker call attempted but no reranker configured."
+            )
             return []
 
         cfg = self.config.reranker

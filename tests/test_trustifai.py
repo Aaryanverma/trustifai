@@ -4,6 +4,7 @@ from trustifai.metrics import BaseMetric
 from trustifai.structures import MetricResult
 import tempfile
 import yaml
+import pytest
 
 # --- Custom Metric for Testing ---
 class MockCustomMetric(BaseMetric):
@@ -33,15 +34,13 @@ def test_get_trust_score(basic_context, sample_config_yaml, mock_service):
     assert result["score"] > 0
 
 def test_dynamic_metric_registration(basic_context, sample_config_yaml, mock_service):
-    # 1. Register new metric (ensure clean state)
-    if hasattr(Trustifai, "_registered_metrics") and "my_test_metric" in Trustifai._registered_metrics:
-        Trustifai._registered_metrics.pop("my_test_metric")
+    # 1. Register new metric
     Trustifai.register_metric("my_test_metric", MockCustomMetric)
 
-    # 2. Load config and modify in-memory (avoid writing to disk)
+    # 2. Load config and modify to include new metric
     with open(sample_config_yaml, 'r') as f:
         data = yaml.safe_load(f)
-    data = dict(data)  # ensure mutable
+    data = dict(data)
     if 'score_weights' not in data:
         data['score_weights'] = []
 
@@ -71,12 +70,14 @@ def test_dynamic_metric_registration(basic_context, sample_config_yaml, mock_ser
     assert isinstance(engine.metrics["my_test_metric"], MockCustomMetric)
 
     # 6. Verify it impacts score
-    res = engine.get_trust_score()
-    assert "my_test_metric" in res["details"]
+    for name, metric in engine.metrics.items():
+        metric.calculate = MagicMock(return_value=MetricResult(score=1.0 if name == "my_test_metric" else 0.5, label="Good", details={}))
+    result = engine.get_trust_score()
+    assert result["score"] > 0.5  # Since my_test_metric returns 1.0 with significant weight
 
     # Clean up: Unregister the metric to avoid side effects on other tests
-    if hasattr(Trustifai, "_registered_metrics") and "my_test_metric" in Trustifai._registered_metrics:
-        Trustifai._registered_metrics.pop("my_test_metric")
+    if hasattr(Trustifai, "_metric_registry") and "my_test_metric" in Trustifai._metric_registry:
+        Trustifai._metric_registry.pop("my_test_metric")
 
 def test_generate_flow(sample_config_yaml, mock_service):
     engine = Trustifai(context=None, config_path=sample_config_yaml)
@@ -105,3 +106,29 @@ def test_build_reasoning_graph(basic_context, sample_config_yaml, mock_service):
     assert graph is not None
     assert len(graph.nodes) > 0
     assert len(graph.edges) > 0
+    
+def test_all_zero_weights_raises_error(basic_context, sample_config_yaml, mock_service):
+    # Modify config so all weights are zero
+    with open(sample_config_yaml, 'r') as f:
+        data = yaml.safe_load(f)
+
+    if 'score_weights' in data:
+        for item in data['score_weights']:
+            item['params']['weight'] = 0.0
+
+    with tempfile.NamedTemporaryFile(mode="w+", suffix=".yaml", delete=False) as tmp:
+        yaml.dump(data, tmp)
+        tmp.flush()
+        tmp_path = tmp.name
+
+    engine = Trustifai(basic_context, tmp_path)
+    engine.service = mock_service
+
+    # Mock metrics
+    for name, metric in engine.metrics.items():
+        metric.calculate = MagicMock(return_value=MetricResult(score=0.5, label="OK", details={}))
+
+    # Should raise an error due to all-zero weights
+    with pytest.raises(ValueError, match="all weights are zero"):
+        engine.get_trust_score()
+

@@ -3,7 +3,7 @@ import yaml
 import tempfile
 import os
 import numpy as np
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, AsyncMock
 from langchain_core.documents import Document
 import sys
 sys.path.append("./.")
@@ -16,6 +16,7 @@ def sample_config_yaml():
     """Creates a temporary config.yaml file for testing"""
     config_data = {
         "env_file": ".env.test",
+        "tracing": {"type": "default", "params": {"enabled": False}},
         "llm": {"type": "openai", "params": {"model_name": "gpt-4"}},
         "embeddings": {"type": "openai", "params": {"model_name": "text-embedding-3-small"}},
         "reranker": {"type": "cohere", "params": {"model_name": "rerank-v3.5"}},
@@ -47,10 +48,14 @@ def mock_service():
     
     # Default behaviors
     service.llm_call = MagicMock()
-    service.extract_document.side_effect = lambda x: x.page_content if hasattr(x, 'page_content') else str(x)
+    service.llm_call_async = AsyncMock()
+    service.embedding_call = MagicMock()
+    service.reranker_call = MagicMock()
+    service.extract_document = ExternalService.extract_document
     service.embedding_call.return_value = np.array([0.1, 0.2, 0.3])
     service.llm_call.return_value = {"response": "Mocked LLM Response", "logprobs": [-0.1, -0.2]}
-    service.reranker_call.return_value = []
+    service.llm_call_async.return_value = {"response": "Mocked Async LLM Response", "logprobs": [-0.1, -0.2]}
+    service.reranker_call.return_value = ["Doc 1", "Doc 2", "Doc 3"]
     
     return service
 

@@ -193,14 +193,15 @@ class Trustifai:
         score = 0.0
         weights_dict = self.config.weights.model_dump()
 
+        #check if all weights are zero and raise error
+        if all(w == 0.0 for w in weights_dict.values()):
+            raise ValueError("Weights must sum upto to 1.0; all weights are zero.")
+
         for metric_key, result in metrics_data.items():
             # Get normalized weight
             w = weights_dict.get(metric_key, 0.0)
 
-            # Specific handling for source diversity score scaling
             metric_score = result["score"]
-            if metric_key == "source_diversity":
-                metric_score = min(1.0, metric_score / 3)
 
             score += w * metric_score
 

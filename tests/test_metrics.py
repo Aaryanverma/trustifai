@@ -34,7 +34,7 @@ def test_consistency(basic_context, mock_service):
     config.thresholds.FRAGILE_CONSISTENCY = 0.7
     
     # Mock 2 generated samples identical to answer
-    mock_service.llm_call_async.return_value = {"response": basic_context.answer}
+    mock_service.llm_call_async.return_value = {"response": basic_context.answer, "logprobs": []}
     # Mock embeddings to return unit vectors
     mock_service.embedding_call.return_value = [1, 0]
     
@@ -92,3 +92,5 @@ def test_confidence_metric():
     # Empty logprobs
     result = ConfidenceMetric.calculate([], evaluator)
     assert result['label'] == "N/A"
+
+
