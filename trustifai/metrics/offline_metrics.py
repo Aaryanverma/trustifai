@@ -5,10 +5,15 @@ import json
 import numpy as np
 from typing import List
 from nltk.tokenize import sent_tokenize
+import nltk
+try:
+    nltk.data.find('tokenizers/punkt_tab')
+except LookupError:
+    nltk.download('punkt_tab', quiet=True)
 
 from trustifai.config import Config
 from trustifai.structures import (
-    MetricContext,
+    MetricContext,  
     SpanSchema,
     MetricResult,
     SpanCheckResult,
