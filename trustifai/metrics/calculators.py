@@ -25,7 +25,9 @@ class CosineSimCalculator:
         if np.any(magnitude_vec1 == 0) or np.any(magnitude_vec2 == 0):
             return 0.0
 
-        similarity = float(dot_product / (np.outer(magnitude_vec1, magnitude_vec2)))
+        similarity_matrix = dot_product / (np.outer(magnitude_vec1, magnitude_vec2))
+        similarity = similarity_matrix.item()
+
         return 0.0 if (np.isnan(similarity) or np.isinf(similarity)) else similarity
 
 class DocumentExtractor:
