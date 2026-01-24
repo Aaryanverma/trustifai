@@ -221,7 +221,7 @@ class TemporalConsistencyMetric(BaseMetric):
 
 # 2. Register Metric
 from Trustifai import Trustifai
-Trustifai.register_metric("pii_check", PIIMetric)
+Trustifai.register_metric("temporal_consistency", TemporalConsistencyMetric)
 
 # 3. Use in Trust Engine (Make sure to add it to config.yaml score_weights!)
 trust_engine = Trustifai(context, "config_file.yaml")
