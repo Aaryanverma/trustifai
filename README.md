@@ -255,5 +255,6 @@ score_weights:
 
 ## TODO
 - [ ] Improve Tracing
-- [ ] Benchmark Testing
+- [ ] Benchmark Testing (In Progress)
 - [ ] Support for GraphRAG
+- [ ] Batch Processing
