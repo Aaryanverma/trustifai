@@ -11,7 +11,7 @@ from tenacity import (
     wait_exponential,
     retry_if_exception_type,
 )
-from litellm import completion, embedding, rerank, acompletion
+from litellm import completion, embedding, rerank, acompletion, batch_completion, aembedding
 import litellm
 from dotenv import load_dotenv
 from trustifai.config import Config
@@ -173,16 +173,21 @@ class ExternalService:
         cfg = self.config.llm
 
         model = f"{cfg.type}/{cfg.params.get('model_name')}"
-        endpoint = cfg.params.get("endpoint")
-
-        # Merge config kwargs with runtime kwargs
+        base_url = cfg.params.get("base_url")
+        api_base = cfg.params.get("api_base")
+        api_version = cfg.params.get("api_version")
+        deployment_id = cfg.params.get("deployment_id")
         final_kwargs = cfg.kwargs.copy()
         final_kwargs.update(kwargs)
 
         try:
             response = completion(
                 model=model,
-                base_url=endpoint,
+                base_url=base_url,
+                api_base=api_base,
+                api_version=api_version,
+                deployment_id=deployment_id,
+                seed=42,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt},
@@ -218,6 +223,65 @@ class ExternalService:
         wait=wait_exponential(multiplier=2, min=3, max=90),
         reraise=True,
     )
+    def llm_call_batch(
+        self, system_prompt: str = None, prompts: List[str] = None, **kwargs
+    ) -> Optional[dict]:
+        """Safely call LLM in batch with retries using Config object"""
+        system_prompt = system_prompt or "You are a helpful assistant."
+        cfg = self.config.llm
+
+        model = f"{cfg.type}/{cfg.params.get('model_name')}"
+        base_url = cfg.params.get("base_url", None)
+        api_base = cfg.params.get("api_base")
+        api_version = cfg.params.get("api_version")
+        deployment_id = cfg.params.get("deployment_id")
+        final_kwargs = cfg.kwargs.copy()
+        final_kwargs.update(kwargs)
+
+        try:
+            response = batch_completion(
+                model=model,
+                base_url=base_url,
+                api_base=api_base,
+                api_version=api_version,
+                deployment_id=deployment_id,
+                seed=42,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    *[{"role": "user", "content": prompt} for prompt in prompts],
+                ],
+                **final_kwargs,
+            )
+
+            response_logprobs = None
+            if all(
+                hasattr(choice, "logprobs") and choice.logprobs
+                for choice in response.choices
+            ):
+                response_logprobs = [
+                    [token.logprob for token in choice.logprobs.content]
+                    for choice in response.choices
+                ]
+
+            return {
+                "response": [choice.message.content for choice in response.choices],
+                "logprobs": response_logprobs,
+            }
+
+        except RETRYABLE_EXCEPTIONS as e:
+            logger.exception(f"Retryable error (will retry): {e}")
+            raise
+
+        except Exception as e:
+            logger.exception("Error calling LLM:", e)
+            return {"response": None, "logprobs": None}
+
+    @retry(
+        retry=retry_if_exception_type(RETRYABLE_EXCEPTIONS),
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=2, min=3, max=90),
+        reraise=True,
+    )
     async def llm_call_async(
         self, system_prompt: str = None, prompt: str = None, **kwargs
     ) -> Optional[dict]:
@@ -226,16 +290,21 @@ class ExternalService:
 
         cfg = self.config.llm
         model = f"{cfg.type}/{cfg.params.get('model_name')}"
-        endpoint = cfg.params.get("endpoint")
-
-        # Merge config kwargs with runtime kwargs
+        base_url = cfg.params.get("base_url", None)
+        api_base = cfg.params.get("api_base")
+        api_version = cfg.params.get("api_version")
+        deployment_id = cfg.params.get("deployment_id")
         final_kwargs = cfg.kwargs.copy()
         final_kwargs.update(kwargs)
 
         try:
             response = await acompletion(
                 model=model,
-                base_url=endpoint,
+                base_url=base_url,
+                api_base=api_base,
+                api_version=api_version,
+                deployment_id=deployment_id,
+                seed=42,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt},
@@ -271,18 +340,22 @@ class ExternalService:
         wait=wait_exponential(multiplier=2, min=3, max=90),
         reraise=True,
     )
-    def embedding_call(self, text: str) -> Optional[np.ndarray]:
+    def embedding_call(self, text: str, **kwargs) -> Optional[np.ndarray]:
         """Safely call embedding model"""
         cfg = self.config.embeddings
         model = f"{cfg.type}/{cfg.params.get('model_name')}"
-        endpoint = cfg.params.get("endpoint")
-        input_type = "feature-extraction" if "huggingface" in model else None
+        endpoint = cfg.params.get("endpoint", None)
+        input_type = (
+            "feature-extraction"
+            if "huggingface" in model
+            else kwargs.get("input_type", None)
+        )
 
         try:
             response = embedding(
                 model=model,
                 input=[text],
-                base_url=endpoint,
+                api_base=endpoint,
                 input_type=input_type,
             )
             return response.data[0]["embedding"]
@@ -292,6 +365,38 @@ class ExternalService:
         except Exception as e:
             logger.exception(f"Error calling embedding: {e}")
             return None
+        
+    @retry(
+        retry=retry_if_exception_type(RETRYABLE_EXCEPTIONS),
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=2, min=3, max=90),
+        reraise=True,
+    )
+    async def embedding_call_async(self, text: str, **kwargs) -> Optional[np.ndarray]:
+        """Safely call embedding model"""
+        cfg = self.config.embeddings
+        model = f"{cfg.type}/{cfg.params.get('model_name')}"
+        endpoint = cfg.params.get("endpoint")
+        input_type = (
+            "feature-extraction"
+            if "huggingface" in model
+            else kwargs.get("input_type", None)
+        )
+
+        try:
+            response = await aembedding(
+                model=model,
+                input=[text],
+                api_base=endpoint,
+                input_type=input_type,
+            )
+            return response.data[0]["embedding"]
+        except RETRYABLE_EXCEPTIONS as e:
+            logger.exception(f"Retryable error (will retry): {e}")
+            raise
+        except Exception as e:
+            logger.exception(f"Error calling embedding asynchronously: {e}")
+            return None   
 
     @retry(
         retry=retry_if_exception_type(RETRYABLE_EXCEPTIONS),

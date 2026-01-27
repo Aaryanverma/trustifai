@@ -35,7 +35,9 @@ class Trustifai:
         "source_diversity": SourceDiversityMetric,
     }
 
-    def __init__(self, context: MetricContext = None, config_path: str = "config_file.yaml"):
+    def __init__(
+        self, context: MetricContext = None, config_path: str = "config_file.yaml"
+    ):
         self.context = context
         self.config = Config.from_yaml(config_path)
         self.service = ExternalService(self.config)
@@ -144,12 +146,17 @@ class Trustifai:
         )
 
         # Log online metrics to MLflow
-        if self.config.tracing and self.config.tracing.params.get('enabled', False):
+        if self.config.tracing and self.config.tracing.params.get("enabled", False):
             try:
                 import mlflow
+
                 if mlflow.active_run():
-                    mlflow.log_metrics({"online/confidence_score": confidence_result["score"]})
-                    mlflow.log_param("online/confidence_label", confidence_result["label"])
+                    mlflow.log_metrics(
+                        {"online/confidence_score": confidence_result["score"]}
+                    )
+                    mlflow.log_param(
+                        "online/confidence_label", confidence_result["label"]
+                    )
             except ImportError:
                 pass
 
@@ -193,7 +200,7 @@ class Trustifai:
         score = 0.0
         weights_dict = self.config.weights.model_dump()
 
-        #check if all weights are zero and raise error
+        # check if all weights are zero and raise error
         if all(w == 0.0 for w in weights_dict.values()):
             raise ValueError("Weights must sum upto to 1.0; all weights are zero.")
 
@@ -214,10 +221,12 @@ class Trustifai:
             decision = "UNRELIABLE"
 
         # Log categorized metrics to MLflow
-        if self.config.tracing and self.config.tracing.params.get('enabled', False):
+        if self.config.tracing and self.config.tracing.params.get("enabled", False):
             try:
                 offline_metric_keys = set(self._metric_registry.keys())
-                self.service.log_metrics_by_category(metrics_data, score, decision, offline_metric_keys)
+                self.service.log_metrics_by_category(
+                    metrics_data, score, decision, offline_metric_keys
+                )
             except ImportError:
                 pass
 
