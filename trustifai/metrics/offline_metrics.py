@@ -143,16 +143,32 @@ class EpistemicConsistencyMetric(BaseMetric):
         else:
             return asyncio.run(gather_samples())
 
+    # def _calculate_similarities(self, samples: List[str]) -> List[float]:
+    #     main_emb = np.atleast_2d(
+    #         np.array(self.service.embedding_call(self.context.answer))
+    #     )
+    #     similarities = []
+    #     for sample in samples:
+    #         sample_emb = np.atleast_2d(np.array(self.service.embedding_call(sample)))
+    #         if sample_emb is not None and sample_emb.size > 0:
+    #             sim = self.cosine_calc.calculate(main_emb, sample_emb)
+    #             similarities.append(sim)
+    #     return similarities
     def _calculate_similarities(self, samples: List[str]) -> List[float]:
         main_emb = np.atleast_2d(
             np.array(self.service.embedding_call(self.context.answer))
         )
+        
+        sample_embeddings = self.service.embedding_call_batch(samples)
+        
         similarities = []
-        for sample in samples:
-            sample_emb = np.atleast_2d(np.array(self.service.embedding_call(sample)))
+        for sample_emb_list in sample_embeddings:
+            sample_emb = np.atleast_2d(np.array(sample_emb_list))
+            
             if sample_emb is not None and sample_emb.size > 0:
                 sim = self.cosine_calc.calculate(main_emb, sample_emb)
                 similarities.append(sim)
+                
         return similarities
 
     def _format_result(self, score: float, std: float, ci_95: float) -> MetricResult:
@@ -301,21 +317,27 @@ class LLMBasedEvidenceStrategy(BaseMetric):
         fail_reason = None
         unsupported_spans = []
 
-        for span in spans:
-            prompt = self._build_verification_prompt(span, extracted_docs)
-            response = self.service.llm_call(prompt=prompt, response_format=SpanSchema)
+        prompts = [self._build_verification_prompt(span, extracted_docs) for span in spans]
 
-            if not response:
+        batch_results = self.service.llm_call_batch(prompts=prompts, response_format=SpanSchema)
+
+        if not batch_results or not batch_results.get("response"):
+            return SpanCheckResult(0, spans, len(spans), "Batch LLM call failed", len(spans))
+
+        responses = batch_results["response"]
+
+        for i, response_content in enumerate(responses):
+            if not response_content:
                 failed_checks += 1
-                fail_reason = "No response"
                 continue
+                
             try:
-                result = json.loads(response["response"])
+                result = json.loads(response_content)
                 spans_result = result.get("spans", [])
                 if spans_result and spans_result[0].get("supported", False):
                     supported += 1
                 else:
-                    unsupported_spans.append(span)
+                    unsupported_spans.append(spans[i])
 
             except Exception as e:
                 failed_checks += 1

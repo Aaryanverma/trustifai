@@ -11,7 +11,14 @@ from tenacity import (
     wait_exponential,
     retry_if_exception_type,
 )
-from litellm import completion, embedding, rerank, acompletion, batch_completion, aembedding
+from litellm import (
+    completion,
+    embedding,
+    rerank,
+    acompletion,
+    batch_completion,
+    aembedding,
+)
 import litellm
 from dotenv import load_dotenv
 from trustifai.config import Config
@@ -238,34 +245,51 @@ class ExternalService:
         final_kwargs = cfg.kwargs.copy()
         final_kwargs.update(kwargs)
 
+        # 1. Structure messages as a list of lists for independent batch processing
+        batched_messages = [
+            [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt},
+            ]
+            for prompt in prompts
+        ]
+
         try:
-            response = batch_completion(
+            # 2. Call batch_completion with the list of message lists
+            responses = batch_completion(
                 model=model,
                 base_url=base_url,
                 api_base=api_base,
                 api_version=api_version,
                 deployment_id=deployment_id,
                 seed=42,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    *[{"role": "user", "content": prompt} for prompt in prompts],
-                ],
+                messages=batched_messages,  # Pass the list of lists here
                 **final_kwargs,
             )
 
-            response_logprobs = None
-            if all(
-                hasattr(choice, "logprobs") and choice.logprobs
-                for choice in response.choices
-            ):
-                response_logprobs = [
-                    [token.logprob for token in choice.logprobs.content]
-                    for choice in response.choices
-                ]
+            # 3. Process the LIST of responses
+            extracted_responses = []
+            extracted_logprobs = []
+
+            for r in responses:
+                # Extract content
+                extracted_responses.append(r.choices[0].message.content)
+
+                # Extract logprobs if available
+                if hasattr(r.choices[0], "logprobs") and r.choices[0].logprobs:
+                    extracted_logprobs.append(
+                        [token.logprob for token in r.choices[0].logprobs.content]
+                    )
+                else:
+                    extracted_logprobs.append(None)
 
             return {
-                "response": [choice.message.content for choice in response.choices],
-                "logprobs": response_logprobs,
+                "response": extracted_responses,
+                "logprobs": (
+                    extracted_logprobs
+                    if any(x is not None for x in extracted_logprobs)
+                    else None
+                ),
             }
 
         except RETRYABLE_EXCEPTIONS as e:
@@ -273,8 +297,12 @@ class ExternalService:
             raise
 
         except Exception as e:
-            logger.exception("Error calling LLM:", e)
-            return {"response": None, "logprobs": None}
+            logger.exception("Error calling LLM batch:", e)
+            # Return a list of Nones matching the input length to avoid index errors downstream
+            return {
+                "response": [None] * len(prompts) if prompts else [],
+                "logprobs": None,
+            }
 
     @retry(
         retry=retry_if_exception_type(RETRYABLE_EXCEPTIONS),
@@ -365,7 +393,7 @@ class ExternalService:
         except Exception as e:
             logger.exception(f"Error calling embedding: {e}")
             return None
-        
+
     @retry(
         retry=retry_if_exception_type(RETRYABLE_EXCEPTIONS),
         stop=stop_after_attempt(3),
@@ -396,7 +424,44 @@ class ExternalService:
             raise
         except Exception as e:
             logger.exception(f"Error calling embedding asynchronously: {e}")
-            return None   
+            return None
+
+    @retry(
+        retry=retry_if_exception_type(RETRYABLE_EXCEPTIONS),
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=2, min=3, max=90),
+        reraise=True,
+    )
+    def embedding_call_batch(self, texts: List[str], **kwargs) -> List[np.ndarray]:
+        """Safely call embedding model with a batch of texts"""
+        if not texts:
+            return []
+
+        cfg = self.config.embeddings
+        model = f"{cfg.type}/{cfg.params.get('model_name')}"
+        endpoint = cfg.params.get("endpoint", None)
+        input_type = (
+            "feature-extraction"
+            if "huggingface" in model
+            else kwargs.get("input_type", None)
+        )
+
+        try:
+            # litellm handles batching when input is a list
+            response = embedding(
+                model=model,
+                input=texts,
+                api_base=endpoint,
+                input_type=input_type,
+            )
+            # Extract list of embeddings in order
+            return [data["embedding"] for data in response.data]
+        except RETRYABLE_EXCEPTIONS as e:
+            logger.exception(f"Retryable error (will retry): {e}")
+            raise
+        except Exception as e:
+            logger.exception(f"Error calling embedding batch: {e}")
+            return []
 
     @retry(
         retry=retry_if_exception_type(RETRYABLE_EXCEPTIONS),

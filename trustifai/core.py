@@ -110,10 +110,13 @@ class Trustifai:
             self.context.answer_embeddings = self.service.embedding_call(
                 self.context.answer
             )
-            self.context.document_embeddings = [
-                self.service.embedding_call(self.service.extract_document(doc))
-                for doc in self.context.documents
-            ]
+            # self.context.document_embeddings = [
+            #     self.service.embedding_call(self.service.extract_document(doc))
+            #     for doc in self.context.documents
+            # ]
+            doc_texts = [self.service.extract_document(doc) for doc in self.context.documents]
+
+            self.context.document_embeddings = self.service.embedding_call_batch(doc_texts)
 
     def generate(
         self, prompt: str, system_prompt: Optional[str] = None, **kwargs
