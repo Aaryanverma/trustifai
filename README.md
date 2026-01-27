@@ -258,4 +258,4 @@ score_weights:
 - [ ] Improve Tracing
 - [ ] Benchmark Testing (In Progress)
 - [ ] Support for GraphRAG
-- [ ] Batch Processing
+- [x] Batch Processing
