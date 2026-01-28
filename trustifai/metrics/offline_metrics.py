@@ -143,17 +143,6 @@ class EpistemicConsistencyMetric(BaseMetric):
         else:
             return asyncio.run(gather_samples())
 
-    # def _calculate_similarities(self, samples: List[str]) -> List[float]:
-    #     main_emb = np.atleast_2d(
-    #         np.array(self.service.embedding_call(self.context.answer))
-    #     )
-    #     similarities = []
-    #     for sample in samples:
-    #         sample_emb = np.atleast_2d(np.array(self.service.embedding_call(sample)))
-    #         if sample_emb is not None and sample_emb.size > 0:
-    #             sim = self.cosine_calc.calculate(main_emb, sample_emb)
-    #             similarities.append(sim)
-    #     return similarities
     def _calculate_similarities(self, samples: List[str]) -> List[float]:
         main_emb = np.atleast_2d(
             np.array(self.service.embedding_call(self.context.answer))

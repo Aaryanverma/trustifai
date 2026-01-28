@@ -1,5 +1,5 @@
 ipython==8.12.3
-litellm==1.81.1
+litellm==1.81.4
 nest_asyncio==1.6.0
 nltk==3.8.1
 numpy
