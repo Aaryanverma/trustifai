@@ -372,18 +372,14 @@ class ExternalService:
         """Safely call embedding model"""
         cfg = self.config.embeddings
         model = f"{cfg.type}/{cfg.params.get('model_name')}"
-        endpoint = cfg.params.get("endpoint", None)
-        input_type = (
-            "feature-extraction"
-            if "huggingface" in model
-            else kwargs.get("input_type", None)
-        )
+        api_base = cfg.params.get("api_base")
+        input_type = cfg.params.get("input_type", None)
 
         try:
             response = embedding(
                 model=model,
                 input=[text],
-                api_base=endpoint,
+                api_base=api_base,
                 input_type=input_type,
             )
             return response.data[0]["embedding"]
@@ -404,18 +400,14 @@ class ExternalService:
         """Safely call embedding model"""
         cfg = self.config.embeddings
         model = f"{cfg.type}/{cfg.params.get('model_name')}"
-        endpoint = cfg.params.get("endpoint")
-        input_type = (
-            "feature-extraction"
-            if "huggingface" in model
-            else kwargs.get("input_type", None)
-        )
+        api_base = cfg.params.get("api_base")
+        input_type = cfg.params.get("input_type", None)
 
         try:
             response = await aembedding(
                 model=model,
                 input=[text],
-                api_base=endpoint,
+                api_base=api_base,
                 input_type=input_type,
             )
             return response.data[0]["embedding"]
@@ -439,19 +431,15 @@ class ExternalService:
 
         cfg = self.config.embeddings
         model = f"{cfg.type}/{cfg.params.get('model_name')}"
-        endpoint = cfg.params.get("endpoint", None)
-        input_type = (
-            "feature-extraction"
-            if "huggingface" in model
-            else kwargs.get("input_type", None)
-        )
+        api_base = cfg.params.get("api_base")
+        input_type = cfg.params.get("input_type", None)
 
         try:
             # litellm handles batching when input is a list
             response = embedding(
                 model=model,
                 input=texts,
-                api_base=endpoint,
+                api_base=api_base,
                 input_type=input_type,
             )
             # Extract list of embeddings in order
@@ -469,7 +457,7 @@ class ExternalService:
         wait=wait_exponential(multiplier=2, min=3, max=90),
         reraise=True,
     )
-    def reranker_call(self, query: str, documents: List[str]):
+    def reranker_call(self, query: str, documents: List[str], **kwargs) -> List[str]:
         """Rerank documents based on similarity to query"""
         if not self.config.reranker or not self.config.reranker.type:
             logger.warning(

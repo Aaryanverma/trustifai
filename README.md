@@ -254,8 +254,12 @@ score_weights:
 - Aggregation: A weighted sum calculates the raw score [0, 1].
 - Decision Boundary: The raw score is mapped to RELIABLE, ACCEPTABLE, or UNRELIABLE based on defined thresholds.
 
+## 🎯 Benchmarks
+- [Amnesty QA](benchmarks/amnesty_qa/benchmark_report.md)
+- HaluEval (In progress)
+
 ## TODO
 - [ ] Improve Tracing
-- [ ] Benchmark Testing (In Progress)
+- [ ] Benchmark Testing (In Progress) 
 - [ ] Support for GraphRAG
 - [x] Batch Processing
