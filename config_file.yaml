@@ -8,9 +8,9 @@ tracing:
     experiment_name: "trustifai_experiment"
 
 llm:
-  type: "mistral" #openai, huggingface, gemini, mistral, ollama, azure_ai etc. (LiteLLM completion models)
+  type: "openai" #openai, huggingface, gemini, mistral, ollama, azure_ai etc. (LiteLLM completion models)
   params:
-    model_name: "mistral-large-latest"
+    model_name: "gpt-4.1"
   kwargs:
     temperature: 0.1
     max_tokens: 4096
@@ -23,8 +23,7 @@ embeddings:
   type: "mistral" #openai, huggingface, gemini, mistral, ollama, azure etc. (LiteLLM embed models)
   params:
     model_name: "mistral-embed"
-    device: "auto" # "auto", "cuda", "cpu", "mps" (applicable for huggingface local models only)
-    kwargs: {}
+  kwargs: {}
 
 reranker:
   type: "cohere" #cohere, together_ai, azure_ai, fireworks_ai, voyage etc. (LiteLLM reranker models)
