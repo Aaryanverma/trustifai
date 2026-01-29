@@ -2,7 +2,6 @@
 """
 Service layer for External APIs (LLMs, Embeddings, Rerankers).
 """
-
 from typing import Optional, List, Any
 import numpy as np
 from tenacity import (
@@ -55,8 +54,8 @@ def is_notebook() -> bool:
     """Check if running in a Jupyter notebook environment"""
     try:
         shell = get_ipython().__class__.__name__
-        if shell == "ZMQInteractiveShell":
-            return True  # Jupyter notebook or qtconsole
+        if shell in ["ZMQInteractiveShell", "Shell"]:
+            return True  # Jupyter/Colab notebook
         elif shell == "TerminalInteractiveShell":
             return False  # Terminal running IPython
         else:

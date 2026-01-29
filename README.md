@@ -75,7 +75,7 @@ context = MetricContext(
 )
 
 # 2. Initialize Engine
-trust_engine = Trustifai(context)
+trust_engine = Trustifai(context,"config_file.yaml")
 
 # 3. Calculate Score
 result = trust_engine.get_trust_score()
@@ -95,7 +95,7 @@ trust_engine.visualize(graph, graph_type="pyvis") # Saves to reasoning_graph.htm
 from trustifai import Trustifai
 
 # Initialize (Context will be None for pure generation)
-trust_engine = Trustifai()
+trust_engine = Trustifai(config_path="config_file.yaml")
 
 # Generate response
 result = trust_engine.generate(
