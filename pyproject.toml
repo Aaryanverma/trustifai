@@ -45,7 +45,7 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["."]
-exclude = ["benchmarks*"]
+exclude = ["benchmarks*", "examples*"]
 
 [tool.setuptools.exclude-package-data]
 "*" = ["*.ipynb", ".ipynb_checkpoints", "*.json", ".csv"]
