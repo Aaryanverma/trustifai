@@ -1,12 +1,14 @@
 # TrustifAI 
 **🛡️Quantify, Visualize, and Explain Trust in AI.**
 
-TrustifAI is a Python-based observability engine designed to evaluate the trustworthiness of LLM responses and Retrieval-Augmented Generation (RAG) systems. Unlike simple evaluation frameworks that rely on a single "correctness" score, TrustifAI computes a multi-dimensional **Trust Score** based on grounding, consistency, alignment, and diversity.
+TrustifAI is a Python-based framework designed to evaluate the trustworthiness of LLM responses and Retrieval-Augmented Generation (RAG) systems. Unlike simple evaluation frameworks that rely on a single "correctness" score, TrustifAI computes a multi-dimensional **Trust Score** based on grounding, consistency, alignment, and diversity.
 
 It also includes **visualizations** to help showcase why a model output was deemed unreliable.
 
 ![Build Status](https://github.com/aaryanverma/trustifai/actions/workflows/run-tests.yml/badge.svg)
 [![PyPI version](https://badge.fury.io/py/trustifai.svg?icon=si%3Apython)](https://badge.fury.io/py/trustifai)
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/trustifai?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/trustifai)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?color=green)](https://opensource.org/licenses/MIT)
 
 ## 📊 Key Metrics
 
@@ -17,7 +19,7 @@ It also includes **visualizations** to help showcase why a model output was deem
 | Metric | Definition | Purpose |
 |------|------------|---------|
 | **Evidence Coverage** | Segment-level entailment check. The answer is tokenized into sentences and each sentence is verified against retrieved documents using an NLI (Natural Language Inference) approach. | Detects hallucinations. Ensures every claim is supported by the provided context. |
-| **Epistemic Consistency** | Measures semantic stability ($1 - \sigma$) across $k$ stochastic generations. Samples $k$ responses at high temperature and computes the mean cosine similarity against the original answer. | Detects model uncertainty. Hallucinated answers tend to vary significantly between runs. |
+| **Epistemic Consistency** | Measures semantic stability ($1 - \sigma$) across $k$ stochastic generations. Samples $k$ responses at high temperature and computes the mean cosine similarity against the original answer. | Detects model inconsistency. Hallucinated answers tend to vary significantly between runs. |
 | **Semantic Drift** | Similarity between the Answer Embedding and the Mean Document Embedding. | Detects topic drift. Ensures the answer stays within the semantic envelope of the context. |
 | **Source Diversity** | Normalized count of distinct source_id references contributing to the answer, adjusted using an exponential decay penalty. | Measures reliance on a single source while rewarding synthesis across multiple independent sources, without excessively penalizing cases where a single document is sufficient.
 
@@ -25,7 +27,7 @@ It also includes **visualizations** to help showcase why a model output was deem
 
 | Metric | Definition | Purpose |
 |------|------------|---------|
-| Confidence Score | Calculated using the log probabilities (logprobs) of the generated tokens. It considers the geometric mean of probabilities penalized by the variance of the generation. | Provides a real-time confidence signal (0.0−1.0) indicating how sure the model is about its own output.
+| **Confidence Score** | Calculated using the log probabilities (logprobs) of the generated tokens. It considers the geometric mean of probabilities penalized by the variance of the generation. | Provides a real-time confidence signal (0.0−1.0) indicating how sure the model is about its own output.
  
 ## 🚀 Installation
 
