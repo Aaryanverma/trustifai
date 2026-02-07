@@ -206,9 +206,10 @@ class ExternalService:
                 hasattr(response.choices[0], "logprobs")
                 and response.choices[0].logprobs
             ):
-                response_logprobs = [
-                    token.logprob for token in response.choices[0].logprobs.content
-                ]
+                # response_logprobs = [
+                #     token.logprob for token in response.choices[0].logprobs.content
+                # ]
+                response_logprobs = response.choices[0].logprobs.content
 
             return {
                 "response": response.choices[0].message.content,

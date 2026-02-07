@@ -35,9 +35,7 @@ class Trustifai:
         "source_diversity": SourceDiversityMetric,
     }
 
-    def __init__(
-        self, config_path: str = "config_file.yaml"
-    ):
+    def __init__(self, config_path: str = "config_file.yaml"):
         self.config = Config.from_yaml(config_path)
         self.service = ExternalService(self.config)
         self.threshold_evaluator = ThresholdEvaluator(self.config)
@@ -109,12 +107,20 @@ class Trustifai:
             #     self.service.embedding_call(self.service.extract_document(doc))
             #     for doc in self.context.documents
             # ]
-            doc_texts = [self.service.extract_document(doc) for doc in self.context.documents]
+            doc_texts = [
+                self.service.extract_document(doc) for doc in self.context.documents
+            ]
 
-            self.context.document_embeddings = self.service.embedding_call_batch(doc_texts)
+            self.context.document_embeddings = self.service.embedding_call_batch(
+                doc_texts
+            )
 
     def generate(
-        self, prompt: str, system_prompt: Optional[str] = None, **kwargs
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        visualize: bool = False,
+        **kwargs,
     ) -> Dict:
         """
         Generates a response using the configured LLM and calculates confidence metrics.
@@ -140,7 +146,7 @@ class Trustifai:
         logprobs = result.get("logprobs", [])
 
         confidence_result = ConfidenceMetric.calculate(
-            logprobs, self.threshold_evaluator
+            logprobs, self.threshold_evaluator, visualize=visualize
         )
 
         # Log online metrics to MLflow
@@ -188,7 +194,7 @@ class Trustifai:
         if context:
             self.context = context
 
-        if not self.context and self.context.documents: 
+        if not self.context and self.context.documents:
             return {
                 "score": 0.0,
                 "label": "Unreliable",
@@ -198,7 +204,7 @@ class Trustifai:
         self._validate_context()
         self._compute_embeddings()
         self._init_metrics()
-            
+
         # Calculate all ACTIVE metrics
         metrics_data = {k: m.calculate().to_dict() for k, m in self.metrics.items()}
 

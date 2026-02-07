@@ -109,7 +109,27 @@ def test_confidence_metric():
     evaluator.evaluate_confidence.return_value = ("High", "Explanation")
 
     # Perfect confidence (logprob 0 = prob 1)
-    logprobs = [0.0, 0.0]
+    logprobs = [
+        {
+            "token": "The",
+            "logprob": 0.0,
+            "bytes": [84, 104, 101],
+            "top_logprobs": [
+                {"token": "The", "logprob": 0.0},
+                {"token": "A", "logprob": 0.0}
+            ]
+        },
+        {
+            "token": " model",
+            "logprob": 0.0,
+            "bytes": [32, 109, 111, 100, 101, 108],
+            "top_logprobs": [
+                {"token": " model", "logprob": 0.0},
+                {"token": " system", "logprob": 0.0}
+            ]
+        }
+    ]
+
     result = ConfidenceMetric.calculate(logprobs, evaluator)
 
     # Use np.isclose for floating point comparison

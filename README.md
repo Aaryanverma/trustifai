@@ -111,6 +111,15 @@ print(f"Confidence: {result['metadata']['confidence_score']} ({result['metadata'
 
 ![alt text](assets/generate_snippet.png)
 
+Rendered HTML code in score metadata:
+![Rendered HTML code in confidence score metadata](assets/confidence_visual.png)
+
+> Note: The confidence score reflects the model’s internal certainty in how it generated the response (based on token-level probabilities). It does not measure factual correctness or guarantee the absence of hallucinations. A model can be highly confident and still be wrong. GPT 5 and GPT 5-mini can give difference confidence score for same input. Its value lies in measuring generation certainty, not truth.
+
+> The confidence score helps identify:
+> - how strongly the model preferred its output over alternatives
+> - answers that were produced hesitantly (low certainty)
+
 ## ⚙️ Configuration
 Control the sensitivity of the evaluation using config_file.yaml.
 
