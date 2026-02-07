@@ -168,7 +168,7 @@ class ExternalService:
     @retry(
         retry=retry_if_exception_type(RETRYABLE_EXCEPTIONS),
         stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=2, min=3, max=90),
+        wait=wait_exponential(multiplier=2, min=3, max=180),
         reraise=True,
     )
     def llm_call(
@@ -226,7 +226,7 @@ class ExternalService:
     @retry(
         retry=retry_if_exception_type(RETRYABLE_EXCEPTIONS),
         stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=2, min=3, max=90),
+        wait=wait_exponential(multiplier=2, min=3, max=180),
         reraise=True,
     )
     def llm_call_batch(
@@ -306,7 +306,7 @@ class ExternalService:
     @retry(
         retry=retry_if_exception_type(RETRYABLE_EXCEPTIONS),
         stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=2, min=3, max=90),
+        wait=wait_exponential(multiplier=2, min=3, max=180),
         reraise=True,
     )
     async def llm_call_async(
@@ -364,7 +364,7 @@ class ExternalService:
     @retry(
         retry=retry_if_exception_type(RETRYABLE_EXCEPTIONS),
         stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=2, min=3, max=90),
+        wait=wait_exponential(multiplier=2, min=3, max=180),
         reraise=True,
     )
     def embedding_call(self, text: str, **kwargs) -> Optional[np.ndarray]:
@@ -392,7 +392,7 @@ class ExternalService:
     @retry(
         retry=retry_if_exception_type(RETRYABLE_EXCEPTIONS),
         stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=2, min=3, max=90),
+        wait=wait_exponential(multiplier=2, min=3, max=180),
         reraise=True,
     )
     async def embedding_call_async(self, text: str, **kwargs) -> Optional[np.ndarray]:
@@ -420,7 +420,7 @@ class ExternalService:
     @retry(
         retry=retry_if_exception_type(RETRYABLE_EXCEPTIONS),
         stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=2, min=3, max=90),
+        wait=wait_exponential(multiplier=2, min=3, max=180),
         reraise=True,
     )
     def embedding_call_batch(self, texts: List[str], **kwargs) -> List[np.ndarray]:
@@ -453,7 +453,7 @@ class ExternalService:
     @retry(
         retry=retry_if_exception_type(RETRYABLE_EXCEPTIONS),
         stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=2, min=3, max=90),
+        wait=wait_exponential(multiplier=2, min=3, max=180),
         reraise=True,
     )
     def reranker_call(self, query: str, documents: List[str], **kwargs) -> List[str]:

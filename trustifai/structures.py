@@ -42,7 +42,7 @@ class SpanSchema(BaseModel):
 class MetricContext:
     query: str
     answer: str
-    documents: list
+    documents: List[Any]
     query_embeddings: np.ndarray = None
     answer_embeddings: np.ndarray = None
     document_embeddings: np.ndarray = None
@@ -74,7 +74,7 @@ class RerankerResult:
     mean_score: float
     global_pass: bool
     fully_supported: int
-    partially_supported: List
+    partially_supported: List[str]
     detailed_results: List[Dict]
 
 # --- Graph Structures ---

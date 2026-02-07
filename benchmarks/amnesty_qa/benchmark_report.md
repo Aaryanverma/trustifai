@@ -52,15 +52,24 @@ Ordinal labels:
 - RELIABLE = 2
 
 **Interpretation:**
-- Spearman → Monotonic ordering:
- If answers labeled RELIABLE always score higher than ACCEPTABLE, and those score higher than UNRELIABLE, Spearman will be high.
-- Pearson → Linear calibration strength:
- A one-step increase in label (e.g., UNRELIABLE → ACCEPTABLE) should correspond to a proportional increase in score.
+- _Spearman Score_ checks whether more reliable answers consistently get higher scores than less reliable ones, regardless of the exact score values.
+
+    - RELIABLE answers should score higher than ACCEPTABLE
+    - ACCEPTABLE should score higher than UNRELIABLE
+
+    If this ordering is respected most of the time, Spearman will be high.
+
+- _Pearson Score_ checks whether moving up one trust level leads to a proportional increase in score.
+
+    - UNRELIABLE → ACCEPTABLE should increase the score by about the same amount as
+    - ACCEPTABLE → RELIABLE
+
+    If score increases closely follow these step-by-step label increases, Pearson will be high.
 
 **Results:**
 ```text
-Spearman : 0.919
-Pearson  : 0.957
+Spearman : 0.919 (The model almost always ranks answers correctly by trust level.)
+Pearson  : 0.957 (The numerical scores increase in a very consistent, well-calibrated way as trust improves.)
 ```
 
 ## Reliability Distribution Comparison

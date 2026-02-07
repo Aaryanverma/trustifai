@@ -36,18 +36,13 @@ class Trustifai:
     }
 
     def __init__(
-        self, context: MetricContext = None, config_path: str = "config_file.yaml"
+        self, config_path: str = "config_file.yaml"
     ):
-        self.context = context
         self.config = Config.from_yaml(config_path)
         self.service = ExternalService(self.config)
         self.threshold_evaluator = ThresholdEvaluator(self.config)
 
         self.metrics = {}
-        if self.context:
-            self._validate_context()
-            self._compute_embeddings()
-            self._init_metrics()
 
     @classmethod
     def register_metric(cls, name: str, metric_class: Type[BaseMetric]):
@@ -185,17 +180,25 @@ class Trustifai:
     def source_diversity(self) -> Dict:
         return self.metrics.get("source_diversity").calculate().to_dict()
 
-    def get_trust_score(self) -> Dict:
+    def get_trust_score(self, context: MetricContext = None) -> Dict:
         """
         Calculates the overall trust score using active metrics and normalized weights.
         """
-        if not self.context.documents:
+
+        if context:
+            self.context = context
+
+        if not self.context and self.context.documents: 
             return {
                 "score": 0.0,
                 "label": "Unreliable",
                 "details": "No source documents available.",
             }
 
+        self._validate_context()
+        self._compute_embeddings()
+        self._init_metrics()
+            
         # Calculate all ACTIVE metrics
         metrics_data = {k: m.calculate().to_dict() for k, m in self.metrics.items()}
 

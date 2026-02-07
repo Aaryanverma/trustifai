@@ -77,10 +77,10 @@ context = MetricContext(
 )
 
 # 2. Initialize Engine
-trust_engine = Trustifai(context,"config_file.yaml")
+trust_engine = Trustifai("config_file.yaml")
 
 # 3. Calculate Score
-result = trust_engine.get_trust_score()
+result = trust_engine.get_trust_score(context)
 print(f"Trust Score: {result['score']} | Decision: {result['label']}")
 
 # 4. Visualize Logic
@@ -116,7 +116,7 @@ Control the sensitivity of the evaluation using config_file.yaml.
 
 ```python
 #custom config can be passed on using config_path
-trust_engine = Trustifai(context, config_path="config_file.yaml")
+trust_engine = Trustifai(config_path="config_file.yaml")
 ```
 Refer: [config_file.yaml](config_file.yaml)
 
@@ -210,9 +210,12 @@ class TemporalConsistencyMetric(BaseMetric):
         
         score = len(supported_dates) / len(answer_dates) if answer_dates else 1.0
         
-        if score >= 0.8:
+        high_threshold = getattr(self.config.thresholds, 'TEMPORALLY_CONSISTENT', 0.8)
+        low_threshold = getattr(self.config.thresholds, 'PARTIAL_TEMPORAL_ISSUES', 0.5)
+        
+        if score >= high_threshold:
             label = "Temporally Consistent"
-        elif score >= 0.5:
+        elif score >= low_threshold:
             label = "Partial Temporal Issues"
         else:
             label = "Temporal Hallucination Detected"
@@ -233,17 +236,31 @@ from Trustifai import Trustifai
 Trustifai.register_metric("temporal_consistency", TemporalConsistencyMetric)
 
 # 3. Use in Trust Engine (Make sure to add it to config.yaml score_weights!)
-trust_engine = Trustifai(context, "config_file.yaml")
+trust_engine = Trustifai("config_file.yaml")
+trust_score = trust_engine.get_trust_score(context)
 ```
 
 *Updated config.yaml:*
 ```yaml
+metrics:
+- type: "evidence_coverage"
+    enabled: true
+    params:
+
+    ... # ... existing metrics ...
+    
+- type: "temporal_consistency"         # <--- Your new metric
+    enabled: true
+    params: 
+      TEMPORALLY_CONSISTENT: 0.80
+      PARTIAL_TEMPORAL_ISSUES: 0.50 
+
 score_weights:
   - type: "evidence_coverage"
     params: { weight: 0.4 }
+    # ... other existing metrics ...
   - type: "temporal_consistency"         # <--- Your new metric
     params: { weight: 0.1 }   # Weights must sum to ~1.0
-  # ... other metrics ...
 ```
 
 ## 🛠️ Architecture
