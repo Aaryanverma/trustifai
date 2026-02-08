@@ -275,9 +275,7 @@ score_weights:
 ## 🛠️ Architecture
 - Context Ingestion: The MetricContext object normalizes inputs (Strings, LangChain/LlamaIndex Documents, List, Dictionary etc.).
 - Vectorization: Embeddings for Query, Answer, and Docs are computed in parallel (if not provided in input).
-- Metric Execution:
-    - Coverage: Uses a Cross-Encoder Reranker or LLM (default) to verify span support.
-    - Consistency: Triggers $k$ asynchronous generation calls to measure semantic variance.
+- Metric Execution: Executes registered metrics on input data, controlled by config file.
 - Confidence: Analyzes token-level logprobs during generation along with variance penalty.
 - Aggregation: A weighted sum calculates the raw score [0, 1].
 - Decision Boundary: The raw score is mapped to RELIABLE, ACCEPTABLE, or UNRELIABLE based on defined thresholds.
@@ -290,4 +288,4 @@ score_weights:
 - [ ] Improve Tracing
 - [ ] Benchmark Testing (In Progress) 
 - [ ] Support for GraphRAG
-- [x] Batch Processing
+- [x] ~~Batch Processing~~
