@@ -64,3 +64,57 @@ def test_cosine_similarity_nan():
     sim = calc.calculate([0, 0], [0, 0])
 
     assert math.isnan(sim) or sim == 0.0
+
+def test_source_identifier_priority(mock_service):
+    """Test that different source IDs take precedence over content hash."""
+    from trustifai.metrics.calculators import SourceIdentifier
+    
+    doc = MagicMock()
+    
+    # Case 1: 'source' in metadata
+    doc.metadata = {"source": "src_1"}
+    assert SourceIdentifier.resolve_source_id(doc, mock_service) == "source:src_1"
+    
+    # Case 2: 'file_name' in metadata (when source is missing)
+    doc.metadata = {"file_name": "file.txt"}
+    assert SourceIdentifier.resolve_source_id(doc, mock_service) == "file_name:file.txt"
+    
+    # Case 3: 'url' in metadata
+    doc.metadata = {"url": "http://example.com"}
+    assert SourceIdentifier.resolve_source_id(doc, mock_service) == "url:http://example.com"
+
+def test_evaluator_consistency_levels():
+    """Test all branches of consistency evaluation."""
+    from trustifai.metrics.calculators import ThresholdEvaluator
+    
+    mock_config = MagicMock()
+    mock_config.thresholds.STABLE_CONSISTENCY = 0.9
+    mock_config.thresholds.FRAGILE_CONSISTENCY = 0.6
+    
+    evaluator = ThresholdEvaluator(mock_config)
+    
+    # Stable
+    lbl, _ = evaluator.evaluate_consistency(0.95)
+    assert lbl == "Stable Consistency"
+    
+    # Fragile
+    lbl, _ = evaluator.evaluate_consistency(0.7)
+    assert lbl == "Fragile Consistency"
+    
+    # Unreliable
+    lbl, _ = evaluator.evaluate_consistency(0.5)
+    assert lbl == "Unreliable"
+
+def test_evaluator_confidence_levels():
+    """Test all branches of confidence evaluation."""
+    from trustifai.metrics.calculators import ThresholdEvaluator
+    
+    mock_config = MagicMock()
+    mock_config.thresholds.HIGH_CONFIDENCE = 0.8
+    mock_config.thresholds.MEDIUM_CONFIDENCE = 0.5
+    
+    evaluator = ThresholdEvaluator(mock_config)
+    
+    assert evaluator.evaluate_confidence(0.9)[0] == "High Confidence"
+    assert evaluator.evaluate_confidence(0.6)[0] == "Medium Confidence"
+    assert evaluator.evaluate_confidence(0.4)[0] == "Low Confidence"

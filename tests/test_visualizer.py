@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import patch
-from trustifai.visualizer import GraphVisualizer
+from trustifai.visualizer import GraphVisualizer, ConfidenceVisualizer
 from trustifai.structures import ReasoningGraph, ReasoningNode, ReasoningEdge
 
 @pytest.fixture
@@ -50,3 +50,22 @@ def test_visualizer_single_node(sample_graph):
     viz = GraphVisualizer(sample_graph)
     output = viz.visualize(graph_type="mermaid")
     assert "n1" in output
+
+def test_generate_html_structure():
+        """Test HTML generation for confidence highlights."""
+        sentences = [
+            {"text": "A.", "score": 0.95, "label": "High Confidence", "token_count": 5},
+            {"text": "B.", "score": 0.50, "label": "Medium Confidence", "token_count": 3},
+            {"text": "C.", "score": 0.10, "label": "Low Confidence", "token_count": 2},
+        ]
+        
+        html = ConfidenceVisualizer._generate_html(sentences)
+        
+        assert "Confidence Per Sentence Scan" in html
+        assert "background-color" in html
+        # Check specific sentence presence
+        assert "A. <sup" in html
+        assert "B. <sup" in html
+        
+def test_generate_html_empty():
+    assert ConfidenceVisualizer._generate_html([]) == ""
