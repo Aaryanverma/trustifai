@@ -177,6 +177,7 @@ class ExternalService:
         """Safely call LLM with retries using Config object"""
         system_prompt = system_prompt or "You are a helpful assistant."
         cfg = self.config.llm
+        image_url = kwargs.pop("image_url", None)
 
         model = f"{cfg.type}/{cfg.params.get('model_name')}"
         base_url = cfg.params.get("base_url")
@@ -186,6 +187,23 @@ class ExternalService:
         final_kwargs = cfg.kwargs.copy()
         final_kwargs.update(kwargs)
 
+        if image_url:
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {"type": "image_url", "image_url": {"url": image_url}},
+                    ],
+                },
+            ]
+        else:
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt},
+            ]
+
         try:
             response = completion(
                 model=model,
@@ -194,10 +212,7 @@ class ExternalService:
                 api_version=api_version,
                 deployment_id=deployment_id,
                 seed=42,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt},
-                ],
+                messages=messages,
                 **final_kwargs,
             )
 

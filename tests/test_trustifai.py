@@ -5,7 +5,7 @@ from trustifai.structures import MetricResult
 import tempfile
 import yaml
 import pytest
-
+import numpy as np
 
 # --- Custom Metric for Testing ---
 class MockCustomMetric(BaseMetric):
@@ -169,3 +169,35 @@ def test_generate_error_handling(sample_config_yaml, mock_service):
 
     result = engine.generate("test")
     assert result["metadata"]["error"] == "LLM call failed"
+
+
+def test_compute_embeddings_trigger_conditions(sample_config_yaml, mock_service, basic_context):
+    """
+    Force _compute_embeddings to run by simulating various 'empty' states.
+    Logic Source: core.py _compute_embeddings
+    """
+    engine = Trustifai(sample_config_yaml)
+    engine.service = mock_service
+    
+    # Scenario 1: query_embeddings is None
+    basic_context.query_embeddings = None
+    engine.context = basic_context
+    engine._compute_embeddings()
+    assert mock_service.embedding_call.called
+    
+    # Scenario 2: query_embeddings is empty numpy array
+    mock_service.embedding_call.reset_mock()
+    basic_context.query_embeddings = np.array([])
+    engine.context = basic_context
+    engine._compute_embeddings()
+    assert mock_service.embedding_call.called
+
+    # Scenario 3: document_embeddings is list of None
+    mock_service.embedding_call.reset_mock()
+    # Mock batch call for documents
+    mock_service.embedding_call_batch = MagicMock(return_value=[np.array([1])])
+    
+    basic_context.document_embeddings = [None, np.array([])]
+    engine.context = basic_context
+    engine._compute_embeddings()
+    assert mock_service.embedding_call_batch.called

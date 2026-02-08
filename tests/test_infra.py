@@ -6,6 +6,7 @@ from trustifai.metrics.offline_metrics import EpistemicConsistencyMetric
 from unittest.mock import patch, MagicMock, AsyncMock
 from langchain_core.documents import Document as LangchainDocument
 from llama_index.core import Document as LlamaIndexDocument
+import httpx
 # --- Config Tests ---
 
 def test_config_loading(sample_config_yaml):
@@ -188,3 +189,27 @@ def test_extract_document_various_inputs(mock_service):
     # Test with LlamaIndex Document
     llamaindex_doc = LlamaIndexDocument(text="LlamaIndex content", metadata={"source": "llama"})
     assert mock_service.extract_document(llamaindex_doc) == "LlamaIndex content"
+
+def test_llm_call_retry_logic(sample_config_yaml):
+    """
+    Test that llm_call actually retries on specific exceptions.
+    Logic Source: services.py @retry decorator
+    """
+    # Create service with real config to trigger the decorator logic
+    from trustifai.config import Config
+    cfg = Config.from_yaml(sample_config_yaml)
+    service = ExternalService(cfg)
+
+    # Mock litellm.completion to fail twice then succeed
+    with patch("trustifai.services.completion") as mock_completion:
+        mock_completion.side_effect = [
+            httpx.ReadTimeout("Timeout"),  # Should retry
+            httpx.ConnectError("Connection Error"), # Should retry
+            MagicMock(choices=[MagicMock(message=MagicMock(content="Success"), logprobs=None)])
+        ]
+
+        response = service.llm_call(prompt="Test")
+        
+        # Verify it was called 3 times (2 retries + 1 success)
+        assert mock_completion.call_count == 3
+        assert response["response"] == "Success"

@@ -119,6 +119,7 @@ class Trustifai:
         self,
         prompt: str,
         system_prompt: Optional[str] = None,
+        image_url: Optional[str] = None,
         visualize: bool = False,
         **kwargs,
     ) -> Dict:
@@ -136,7 +137,7 @@ class Trustifai:
         kwargs["logprobs"] = True
 
         result = self.service.llm_call(
-            prompt=prompt, system_prompt=system_prompt, **kwargs
+            prompt=prompt, system_prompt=system_prompt, image_url=image_url, **kwargs
         )
 
         if not result or result.get("response") is None:
