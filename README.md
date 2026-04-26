@@ -275,10 +275,7 @@ score_weights:
 
 ## 🎯 Benchmarks
 - [Amnesty QA](benchmarks/amnesty_qa/benchmark_report.md)
-- HaluEval (In progress)
 
 ## TODO
 - [ ] Improve Tracing
-- [ ] Benchmark Testing (In Progress) 
 - [ ] Support for GraphRAG
-- [x] Batch Processing

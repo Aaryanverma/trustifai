@@ -53,13 +53,17 @@ class MetricResult:
     score: float
     label: str
     details: Dict
+    execution_metadata: Optional[Dict] = None
     
     def to_dict(self) -> Dict:
-        return {
+        res = {
             "score": round(self.score, 2),
             "label": self.label,
             "details": self.details
         }
+        if self.execution_metadata:
+            res["execution_metadata"] = self.execution_metadata
+        return res
 
 @dataclass
 class SpanCheckResult:
@@ -68,6 +72,7 @@ class SpanCheckResult:
     failed_count: int
     fail_reason: Optional[str]
     total_count: int
+    cost: Optional[float] = None
 
 @dataclass
 class RerankerResult:

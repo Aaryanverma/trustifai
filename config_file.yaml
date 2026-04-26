@@ -1,4 +1,4 @@
-env_file: "creds.env"
+env_file: "creds.env" #optional, specify your environment variable file for API keys and other secrets
 
 tracing:
   type: "default"
@@ -8,21 +8,23 @@ tracing:
     experiment_name: "trustifai_experiment"
 
 llm:
-  type: "openai" #openai, huggingface, gemini, mistral, ollama, azure_ai etc. (LiteLLM completion models)
+  type: "openai" #openai, huggingface, gemini, mistral, ollama, azure_ai, nvidia_nim etc. (LiteLLM models)
   params:
-    model_name: "gpt-4.1"
+    model_name: "gpt-5.5" # specify your model name here
+    api_type: "chat_completion" # "chat_completion" (default) or "responses"
   kwargs:
-    temperature: 0.1
-    max_tokens: 4096
+    temperature: 0.01
+    max_tokens: 2048
     top_p: 0.95
     max_retries: 5
     timeout: 300
     logprobs: true
+    # chat_template_kwargs: {"enable_thinking": False}
 
 embeddings:
-  type: "mistral" #openai, huggingface, gemini, mistral, ollama, azure etc. (LiteLLM embed models)
+  type: "openrouter" #openai, huggingface, gemini, mistral, ollama, azure etc. (LiteLLM embed models)
   params:
-    model_name: "mistral-embed"
+    model_name: "openai/text-embedding-3-small"
   kwargs: {}
 
 reranker:

@@ -9,8 +9,7 @@ from trustifai.metrics.calculators import CosineSimCalculator, DocumentExtractor
 class BaseMetric(ABC):
     """Base class for all metrics"""
 
-    def __init__(self, context: MetricContext, service: ExternalService, config: Config):
-        self.context = context
+    def __init__(self, service: ExternalService, config: Config):
         self.service = service
         self.config = config
         self.cosine_calc = CosineSimCalculator()
@@ -18,5 +17,10 @@ class BaseMetric(ABC):
         self.threshold_evaluator = ThresholdEvaluator(config)
 
     @abstractmethod
-    def calculate(self) -> MetricResult:
+    def calculate(self, context: MetricContext) -> MetricResult:
+        """Synchronous calculation per request context"""
         pass
+
+    async def a_calculate(self, context: MetricContext) -> MetricResult:
+        """Asynchronous calculation. Override if async logic is needed natively."""
+        return self.calculate(context)

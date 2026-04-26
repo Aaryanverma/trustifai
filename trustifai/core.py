@@ -1,6 +1,7 @@
 # core.py
 """Main class for trust score calculation and reasoning graphs"""
 
+import asyncio
 import uuid
 from typing import Dict, Optional, Type
 
@@ -67,52 +68,72 @@ class Trustifai:
 
             if weight > 0:
                 self.metrics[metric_name] = metric_cls(
-                    self.context, self.service, self.config
+                    self.service, self.config
                 )
 
-    def _validate_context(self):
+    def _validate_context(self, context: MetricContext):
         required_attrs = ["answer", "query", "documents"]
         for attr in required_attrs:
-            if not hasattr(self.context, attr):
+            if not hasattr(context, attr):
                 raise ValueError(f"Context missing required attribute: {attr}")
 
-    def _compute_embeddings(self):
+    def _compute_embeddings(self, context: MetricContext):
         """Compute embeddings if not present"""
         if (
-            self.context.query_embeddings is None
-            or self.context.answer_embeddings is None
-            or self.context.document_embeddings is None
+            context.query_embeddings is None
+            or context.answer_embeddings is None
+            or context.document_embeddings is None
             or (
-                hasattr(self.context.query_embeddings, "size")
-                and self.context.query_embeddings.size == 0
+                hasattr(context.query_embeddings, "size")
+                and context.query_embeddings.size == 0
             )
             or (
-                hasattr(self.context.answer_embeddings, "size")
-                and self.context.answer_embeddings.size == 0
+                hasattr(context.answer_embeddings, "size")
+                and context.answer_embeddings.size == 0
             )
             or (
-                isinstance(self.context.document_embeddings, list)
+                isinstance(context.document_embeddings, list)
                 and any(
                     (emb is None or (hasattr(emb, "size") and emb.size == 0))
-                    for emb in self.context.document_embeddings
+                    for emb in context.document_embeddings
                 )
             )
         ):
 
-            self.context.query_embeddings = self.service.embedding_call(
-                self.context.query
-            )
-            self.context.answer_embeddings = self.service.embedding_call(
-                self.context.answer
-            )
-            # self.context.document_embeddings = [
+            context.query_embeddings = self.service.embedding_call(
+                context.query
+            )['embedding']
+            context.answer_embeddings = self.service.embedding_call(
+                context.answer
+            )['embedding']
+            # context.document_embeddings = [
             #     self.service.embedding_call(self.service.extract_document(doc))
-            #     for doc in self.context.documents
+            #     for doc in context.documents
             # ]
-            doc_texts = [self.service.extract_document(doc) for doc in self.context.documents]
+            doc_texts = [self.service.extract_document(doc) for doc in context.documents]
 
-            self.context.document_embeddings = self.service.embedding_call_batch(doc_texts)
+            context.document_embeddings = self.service.embedding_call_batch(doc_texts)['embedding']
+        
+        return context
 
+    async def _a_compute_embeddings(self, context: MetricContext) -> float:
+        """Async variant of compute embeddings."""
+
+        if context.query_embeddings is None:
+            context.query_embeddings = await self.service.embedding_call_async(context.query)
+            context.query_embeddings = context.query_embeddings['embedding']
+            
+        if context.answer_embeddings is None:
+            context.answer_embeddings = await self.service.embedding_call_async(context.answer)
+            context.answer_embeddings = context.answer_embeddings['embedding']
+            
+        if context.document_embeddings is None:
+            # Batch call natively runs threaded under litellm, fine for standard optimization
+            doc_texts = [self.service.extract_document(doc) for doc in context.documents]
+            context.document_embeddings = self.service.embedding_call_batch(doc_texts)['embedding']
+        
+        return context
+            
     def generate(
         self, prompt: str, system_prompt: Optional[str] = None, **kwargs
     ) -> Dict:
@@ -165,6 +186,9 @@ class Trustifai:
                 "confidence_label": confidence_result["label"],
                 "confidence_details": confidence_result["details"],
                 "logprobs_available": bool(logprobs),
+                "execution_metadata": {
+                    "total_cost_usd": result.get("cost", 0.0),
+                }
             },
         }
 
@@ -185,48 +209,73 @@ class Trustifai:
         Calculates the overall trust score using active metrics and normalized weights.
         """
 
-        if context:
-            self.context = context
-
-        if not self.context and self.context.documents: 
+        if not context or (not context.documents): 
             return {
                 "score": 0.0,
                 "label": "Unreliable",
                 "details": "No source documents available.",
+                "execution_metadata": {"total_cost_usd": 0.0}
             }
 
-        self._validate_context()
-        self._compute_embeddings()
+        self._validate_context(context)
+        context = self._compute_embeddings(context)
         self._init_metrics()
             
         # Calculate all ACTIVE metrics
-        metrics_data = {k: m.calculate().to_dict() for k, m in self.metrics.items()}
+        metrics_data = {k: m.calculate(context).to_dict() for k, m in self.metrics.items()}
 
-        # Weighted Sum
+        return self._aggregate_results(metrics_data)
+    
+    async def a_get_trust_score(self, context: MetricContext = None) -> Dict:
+        """
+        Calculates the overall trust score asynchronously. 
+        Ideal for highly concurrent server deployments.
+        """
+        if not context or (context.documents is None or len(context.documents) == 0): 
+            return {
+                "score": 0.0, "label": "Unreliable", "details": "No source documents available.",
+                "execution_metadata": {"total_cost_usd": 0.0}
+            }
+
+        self._validate_context(context)
+        context = await self._a_compute_embeddings(context)
+        self._init_metrics()
+            
+        metrics_data = {}
+        tasks = []
+        keys = []
+        
+        for k, m in self.metrics.items():
+            keys.append(k)
+            tasks.append(m.a_calculate(context))
+            
+        results = await asyncio.gather(*tasks)
+        
+        for k, res in zip(keys, results):
+            metrics_data[k] = res.to_dict()
+
+        return self._aggregate_results(metrics_data)
+    
+    def _aggregate_results(self, metrics_data: dict) -> dict:
         score = 0.0
+        total_cost = 0.0
+        
         weights_dict = self.config.weights.model_dump()
-
-        # check if all weights are zero and raise error
         if all(w == 0.0 for w in weights_dict.values()):
             raise ValueError("Weights must sum upto to 1.0; all weights are zero.")
 
         for metric_key, result in metrics_data.items():
-            # Get normalized weight
             w = weights_dict.get(metric_key, 0.0)
-
-            metric_score = result["score"]
-
-            score += w * metric_score
+            score += w * result["score"]
+            
+            meta = result.get("execution_metadata", {})
+            total_cost += meta.get("cost", 0.0)
 
         thresholds = self.config.thresholds
-        if score >= thresholds.RELIABLE_TRUST:
-            decision = "RELIABLE"
-        elif score >= thresholds.ACCEPTABLE_TRUST:
-            decision = "ACCEPTABLE (WITH CAUTION)"
-        else:
-            decision = "UNRELIABLE"
+        if score >= thresholds.RELIABLE_TRUST: decision = "RELIABLE"
+        elif score >= thresholds.ACCEPTABLE_TRUST: decision = "ACCEPTABLE (WITH CAUTION)"
+        else: decision = "UNRELIABLE"
 
-        # Log categorized metrics to MLflow
         if self.config.tracing and self.config.tracing.params.get("enabled", False):
             try:
                 offline_metric_keys = set(self._metric_registry.keys())
@@ -236,10 +285,14 @@ class Trustifai:
             except ImportError:
                 pass
 
+
         return {
             "score": round(score, 2),
             "label": decision,
             "details": metrics_data,
+            "execution_metadata": {
+                "total_cost_usd": round(total_cost, 6),
+            }
         }
 
     def build_reasoning_graph(

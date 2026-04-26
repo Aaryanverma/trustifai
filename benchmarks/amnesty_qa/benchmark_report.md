@@ -1,6 +1,6 @@
 # TrustifAI Benchmark Report
 
-**Generated on:** 2026-01-28 22:08:19
+**Generated on:** 2026-04-26 12:44:22
 
 ## Dataset Details
 
@@ -44,34 +44,6 @@ ROC-AUC  : 1.000
 PR-AUC   : 1.000
 ```
 
-## Score Calibration (Ordinal Consistency)
-
-Ordinal labels:
-- UNRELIABLE = 0
-- ACCEPTABLE (WITH CAUTION) = 1
-- RELIABLE = 2
-
-**Interpretation:**
-- _Spearman Score_ checks whether more reliable answers consistently get higher scores than less reliable ones, regardless of the exact score values.
-
-    - RELIABLE answers should score higher than ACCEPTABLE
-    - ACCEPTABLE should score higher than UNRELIABLE
-
-    If this ordering is respected most of the time, Spearman will be high.
-
-- _Pearson Score_ checks whether moving up one trust level leads to a proportional increase in score.
-
-    - UNRELIABLE → ACCEPTABLE should increase the score by about the same amount as
-    - ACCEPTABLE → RELIABLE
-
-    If score increases closely follow these step-by-step label increases, Pearson will be high.
-
-**Results:**
-```text
-Spearman : 0.919 (The model almost always ranks answers correctly by trust level.)
-Pearson  : 0.957 (The numerical scores increase in a very consistent, well-calibrated way as trust improves.)
-```
-
 ## Reliability Distribution Comparison
 
 A healthy system should assign:
@@ -85,7 +57,7 @@ A healthy system should assign:
 Label         ACCEPTABLE (WITH CAUTION)  RELIABLE  UNRELIABLE
 Type                                                         
 Ground Truth                          0        19           1
-LLM                                   6        10           4
+LLM                                   8        10           2
 ```
 
 ## Verdict

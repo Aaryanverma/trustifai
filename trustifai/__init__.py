@@ -8,3 +8,10 @@ except (LookupError, OSError):
     nltk.download('punkt_tab', quiet=True)
 except Exception as e:
     raise RuntimeError(f"Failed to download 'punkt_tab':\n{e}")
+
+_all__ = [
+    "Trustifai", 
+    "BaseMetric", 
+    "MetricContext", 
+    "MetricResult", 
+]

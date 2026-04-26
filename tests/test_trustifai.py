@@ -9,7 +9,7 @@ import pytest
 
 # --- Custom Metric for Testing ---
 class MockCustomMetric(BaseMetric):
-    def calculate(self) -> MetricResult:
+    def calculate(self, context) -> MetricResult:
         return MetricResult(score=1.0, label="Custom", details={})
 
 
@@ -72,7 +72,7 @@ def test_dynamic_metric_registration(basic_context, sample_config_yaml, mock_ser
 
     # 4. Init Engine with modified config path
     engine = Trustifai(tmp_path)
-    engine.context = basic_context
+    # engine.context = basic_context
     engine.service = mock_service
     engine._init_metrics()
 
