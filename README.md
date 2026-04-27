@@ -14,7 +14,7 @@ It also includes **visualizations** to help showcase why a model output was deem
 
 **TrustifAI** evaluates trustworthiness using four orthogonal vectors. The final *Trust Score* is a weighted aggregation of these components.
 
-### Offline Metrics
+### Offline Metrics (For already generated RAG response)
 
 | Metric | Definition | Purpose |
 |------|------------|---------|
@@ -23,7 +23,7 @@ It also includes **visualizations** to help showcase why a model output was deem
 | **Semantic Drift** | Similarity between the Answer Embedding and the Mean Document Embedding. | Detects topic drift. Ensures the answer stays within the semantic envelope of the context. |
 | **Source Diversity** | Normalized count of distinct source_id references contributing to the answer, adjusted using an exponential decay penalty. | Measures reliance on a single source while rewarding synthesis across multiple independent sources, without excessively penalizing cases where a single document is sufficient.
 
-### Online Metrics
+### Online Metrics (For Real-time response generation)
 
 | Metric | Definition | Purpose |
 |------|------------|---------|
