@@ -263,15 +263,44 @@ score_weights:
     params: { weight: 0.1 }   # Weights must sum to ~1.0
 ```
 
-## 🛠️ Architecture
-- Context Ingestion: The MetricContext object normalizes inputs (Strings, LangChain/LlamaIndex Documents, List, Dictionary etc.).
-- Vectorization: Embeddings for Query, Answer, and Docs are computed in parallel (if not provided in input).
-- Metric Execution:
-    - Coverage: Uses a Cross-Encoder Reranker or LLM (default) to verify span support.
-    - Consistency: Triggers $k$ asynchronous generation calls to measure semantic variance.
-- Confidence: Analyzes token-level logprobs during generation along with variance penalty.
-- Aggregation: A weighted sum calculates the raw score [0, 1].
-- Decision Boundary: The raw score is mapped to RELIABLE, ACCEPTABLE, or UNRELIABLE based on defined thresholds.
+## 🛠️ Flow
+
+```
+Input (Query, Answer, Documents)
+    ↓
+Validation & Type Normalization
+    ├─ Accepts: Strings, LangChain/LlamaIndex Documents, Lists, Dicts
+    └─ Returns: MetricContext
+    ↓
+Embedding Computation (Cached or Computed)
+    ├─ Query embedding
+    ├─ Answer embedding
+    └─ Document embeddings
+    ↓
+Initialize Active Metrics
+    ├─ Evidence Coverage Metric
+    ├─ Semantic Drift Metric
+    ├─ Epistemic Consistency Metric
+    ├─ Source Diversity Metric
+    └─ Confidence Metric (real-time only for response generation)
+    ↓
+Parallel Metric Execution
+    ├─ Each metric: calculate(context) → MetricResult
+    └─ Async-safe: Thread isolation for event loop conflicts
+    ↓
+Result Aggregation & Thresholding
+    ├─ Weighted sum: Σ(weight_i × metric_score_i)
+    ├─ Threshold classification: RELIABLE | ACCEPTABLE | UNRELIABLE
+    └─ Cost accumulation
+    ↓
+Reasoning Graph Construction
+    ├─ Nodes: Metrics, aggregation, decision
+    ├─ Edges: Data flow relationships
+    └─ Color-coded by confidence: green ≥ STRONG, orange ≥ PARTIAL, red < PARTIAL
+    ↓
+Output: TrustScore Result + Visualization
+```
+
 
 ## 🎯 Benchmarks
 - [Amnesty QA](benchmarks/amnesty_qa/benchmark_report.md)

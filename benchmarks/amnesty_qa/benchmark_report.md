@@ -46,10 +46,7 @@ PR-AUC   : 1.000
 
 ## Reliability Distribution Comparison
 
-A healthy system should assign:
-- More **RELIABLE** labels to **Ground Truth**
-- More **UNRELIABLE** labels to **LLM answers**
-
+If TrustifAI works correctly, then LLM-generated answers should receive trust scores that result in labels predominantly falling under ACCEPTABLE (WITH CAUTION) or RELIABLE categories, with the combined count of these positive labels being comparable with positive labels for Ground Truth.
 
 **Results:**
 
@@ -67,3 +64,5 @@ TrustifAI demonstrates **meaningful separation** between grounded and hallucinat
 - Effective hallucination detection
 - Reasonable score calibration
 - Practical usefulness in RAG evaluation pipelines
+
+[Benchmark Results CSV](benchmark_results.csv)
