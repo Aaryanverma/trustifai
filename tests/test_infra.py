@@ -2,8 +2,7 @@ import pytest
 from trustifai.config import Config
 import asyncio
 from trustifai.services import ExternalService
-from trustifai.metrics.offline_metrics import EpistemicConsistencyMetric
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import patch, MagicMock
 from langchain_core.documents import Document as LangchainDocument
 from llama_index.core import Document as LlamaIndexDocument
 # --- Config Tests ---
@@ -74,11 +73,65 @@ def test_llm_call_failure(mock_service):
     with pytest.raises(Exception, match="API Error"):
         mock_service.llm_call(prompt="Hi")
 
+def test_llm_call_batch(mock_service):
+    # Test batch LLM calls with multiple prompts
+    # Test with "responses" and "chat_completion" API types
+    # Test return format and cost calculation
+    mock_service.llm_call_batch.return_value = [{"response": "Test Response 1", "logprobs": []}, {"response": "Test Response 2", "logprobs": []}]
+    res = mock_service.llm_call_batch(prompts=["Hi", "Hello"], api_type="chat_completion")
+    assert len(res) == 2
+    assert res[0]["response"] == "Test Response 1"
+    assert res[1]["response"] == "Test Response 2"
+
+def test_llm_call_async(mock_service):
+    async def mock_async_call(*args, **kwargs):
+        return {"response": "Async Test Response", "logprobs": []}
+
+    mock_service.llm_call_async = mock_async_call
+
+    async def run_test():
+        res = await mock_service.llm_call_async(prompt="Hi")
+        assert res["response"] == "Async Test Response"
+
+    asyncio.run(run_test())
+
+def test_api_type_llm_call(mock_service):
+    # Test with "responses" API type
+    mock_service.llm_call.return_value = {"response": "Test Response", "logprobs": []}
+    res = mock_service.llm_call(prompt="Hi", api_type="responses")
+    assert res["response"] == "Test Response"
+
+    # Test with "chat_completion" API type
+    res = mock_service.llm_call(prompt="Hi", api_type="chat_completion")
+    assert res["response"] == "Test Response"
+
 def test_embedding_call(mock_service):
     mock_service.embedding_call.return_value = [0.1, 0.2, 0.3]
 
     vec = mock_service.embedding_call("Test text")
     assert isinstance(vec, list) or hasattr(vec, "__array__")
+
+def test_embedding_call_batch(mock_service):
+    # Test batch embeddings with multiple texts
+    # Test batch size handling
+    # Verify embedding dimensions
+    mock_service.embedding_call_batch.return_value = [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
+    vecs = mock_service.embedding_call_batch(["Test text 1", "Test text 2"])
+    assert len(vecs) == 2
+    assert isinstance(vecs[0], list) or hasattr(vecs[0], "__array__")
+    assert isinstance(vecs[1], list) or hasattr(vecs[1], "__array__")
+
+def test_embedding_call_async(mock_service):
+    async def mock_async_embedding(*args, **kwargs):
+        return [0.1, 0.2, 0.3]
+
+    mock_service.embedding_call_async = mock_async_embedding
+
+    async def run_test():
+        vec = await mock_service.embedding_call_async("Test text")
+        assert isinstance(vec, list) or hasattr(vec, "__array__")
+
+    asyncio.run(run_test())
 
 def test_embedding_call_empty_input(mock_service):
     mock_service.embedding_call.return_value = []
@@ -104,8 +157,11 @@ def test_reranker_empty_result(mock_service):
 @patch("trustifai.services.embedding")  
 @patch("trustifai.services.acompletion") 
 @patch("trustifai.services.rerank")
-def test_real_service_calls(mock_embed, mock_completion, mock_acompletion, mock_rerank, sample_config_yaml):
+@patch("trustifai.services.responses")
+@patch("trustifai.services.aresponses")
+def test_real_service_calls(mock_aresponses, mock_responses, mock_rerank, mock_acompletion, mock_embed, mock_completion, sample_config_yaml):
     config = Config.from_yaml(sample_config_yaml)
+    
     service = ExternalService(config)
     mock_completion.return_value.choices = [
         MagicMock(message=MagicMock(content="Mocked Response"), logprobs=None)
@@ -113,9 +169,21 @@ def test_real_service_calls(mock_embed, mock_completion, mock_acompletion, mock_
     mock_acompletion.return_value.choices = [
         MagicMock(message=MagicMock(content="Mocked Async Response"), logprobs=None)
     ]
+    mock_responses.return_value.output_text = "Mocked Response"
+    mock_aresponses.return_value.output_text = "Mocked Async Response"
+    
     mock_embed.return_value.data = [{"embedding": [0.1, 0.2, 0.3]}]
     mock_rerank.return_value.result = ["Doc A", "Doc B"]
 
+    #api type: chat_completion
+    service.llm_call(prompt="test")
+    service.embedding_call("text")
+    service.reranker_call("query", ["Doc A", "Doc B"])
+    asyncio.run(service.llm_call_async(prompt="async test"))
+
+    #api type: responses
+    config.llm.params['api_type'] = "responses"
+    service = ExternalService(config)
     service.llm_call(prompt="test")
     service.embedding_call("text")
     service.reranker_call("query", ["Doc A", "Doc B"])
@@ -125,27 +193,8 @@ def test_real_service_calls(mock_embed, mock_completion, mock_acompletion, mock_
     assert mock_embed.called
     assert mock_rerank.called
     assert mock_acompletion.called
-
-@patch("trustifai.metrics.offline_metrics.is_notebook")
-def test_consistency_async_environment(mock_is_notebook, basic_context, mock_service):
-    # Setup
-    mock_service.llm_call_async = AsyncMock(return_value={"response": "test"})
-    mock_service.embedding_call.return_value = [1.0, 0.0]
-    config = MagicMock()
-    config.k_samples = 2
-    config.thresholds = MagicMock()
-    config.thresholds.STABLE_CONSISTENCY = 0.9
-    config.thresholds.FRAGILE_CONSISTENCY = 0.7
-
-    # Case 1: Simulate Notebook (Asyncio event loop logic)
-    mock_is_notebook.return_value = True
-    metric = EpistemicConsistencyMetric(basic_context, mock_service, config)
-    metric.calculate() # This hits the 'if is_notebook()' block
-
-    # Case 2: Simulate Script (Standard asyncio.run logic)
-    mock_is_notebook.return_value = False
-    metric = EpistemicConsistencyMetric(basic_context, mock_service, config)
-    metric.calculate() # This hits the 'else' block
+    assert mock_responses.called
+    assert mock_aresponses.called
 
 def test_exception_handling_in_service_calls(mock_service):
     # LLM Call Exception

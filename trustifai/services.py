@@ -3,7 +3,6 @@
 Service layer for External APIs (LLMs, Embeddings, Rerankers).
 """
 from typing import Optional, List, Any
-import numpy as np
 from tenacity import (
     retry,
     stop_after_attempt,
@@ -17,11 +16,13 @@ from litellm import (
     acompletion,
     batch_completion,
     aembedding,
+    completion_cost,
+    responses,
+    aresponses
 )
 import litellm
 from dotenv import load_dotenv
 from trustifai.config import Config
-from IPython import get_ipython
 import httpx
 import requests
 import logging
@@ -48,21 +49,6 @@ RETRYABLE_EXCEPTIONS = (
     litellm.exceptions.Timeout,
     litellm.exceptions.APIConnectionError,
 )
-
-
-def is_notebook() -> bool:
-    """Check if running in a Jupyter notebook environment"""
-    try:
-        shell = get_ipython().__class__.__name__
-        if shell in ["ZMQInteractiveShell", "Shell"]:
-            return True  # Jupyter/Colab notebook
-        elif shell == "TerminalInteractiveShell":
-            return False  # Terminal running IPython
-        else:
-            return False  # Other type (likely standard Python interpreter)
-    except NameError:
-        return False  # Probably standard Python interpreter
-
 
 def empty_decorator(fn):
     return fn
@@ -168,7 +154,7 @@ class ExternalService:
     @retry(
         retry=retry_if_exception_type(RETRYABLE_EXCEPTIONS),
         stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=2, min=3, max=180),
+        wait=wait_exponential(multiplier=2, min=3, max=500),
         reraise=True,
     )
     def llm_call(
@@ -183,37 +169,68 @@ class ExternalService:
         api_base = cfg.params.get("api_base")
         api_version = cfg.params.get("api_version")
         deployment_id = cfg.params.get("deployment_id")
+        api_type = cfg.params.get("api_type", "chat_completion")
         final_kwargs = cfg.kwargs.copy()
         final_kwargs.update(kwargs)
 
         try:
-            response = completion(
-                model=model,
-                base_url=base_url,
-                api_base=api_base,
-                api_version=api_version,
-                deployment_id=deployment_id,
-                seed=42,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt},
-                ],
-                **final_kwargs,
-            )
+            if api_type == "responses":
+                response = responses(
+                    model=model,
+                    base_url=base_url,
+                    api_base=api_base,
+                    api_version=api_version,
+                    deployment_id=deployment_id,
+                    seed=42,
+                    input=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": prompt},
+                    ],
+                    **final_kwargs,
+                )
+            elif api_type == "chat_completion":
+                response = completion(
+                    model=model,
+                    base_url=base_url,
+                    api_base=api_base,
+                    api_version=api_version,
+                    deployment_id=deployment_id,
+                    seed=42,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": prompt},
+                    ],
+                    **final_kwargs,
+                )
+            else:
+                raise ValueError(f"Unsupported API type: '{api_type}'. Must be 'chat_completion' or 'responses'.")
+
+            try:
+                cost = completion_cost(completion_response=response) or 0.0
+            except Exception:
+                cost = 0.0
 
             response_logprobs = None
-            if (
-                hasattr(response.choices[0], "logprobs")
-                and response.choices[0].logprobs
-            ):
-                response_logprobs = [
-                    token.logprob for token in response.choices[0].logprobs.content
-                ]
+            if api_type == "chat_completion":
+                if (
+                    hasattr(response.choices[0], "logprobs")
+                    and response.choices[0].logprobs
+                ):
+                    response_logprobs = [
+                        token.logprob for token in response.choices[0].logprobs.content
+                    ]
 
-            return {
-                "response": response.choices[0].message.content,
-                "logprobs": response_logprobs,
-            }
+                return {
+                    "response": response.choices[0].message.content,
+                    "logprobs": response_logprobs,
+                    "cost": f"{cost:.6f}",
+                }
+            else:  
+                return {
+                    "response": response.output_text,
+                    "logprobs": None,
+                    "cost": f"{cost:.6f}",
+                }
 
         except RETRYABLE_EXCEPTIONS as e:
             logger.exception(f"Retryable error (will retry): {e}")
@@ -221,12 +238,12 @@ class ExternalService:
 
         except Exception as e:
             logger.exception("Error calling LLM:", e)
-            return {"response": None, "logprobs": None}
+            return {"response": None, "logprobs": None, "cost": 0.0}
 
     @retry(
         retry=retry_if_exception_type(RETRYABLE_EXCEPTIONS),
         stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=2, min=3, max=180),
+        wait=wait_exponential(multiplier=2, min=3, max=500),
         reraise=True,
     )
     def llm_call_batch(
@@ -241,6 +258,7 @@ class ExternalService:
         api_base = cfg.params.get("api_base")
         api_version = cfg.params.get("api_version")
         deployment_id = cfg.params.get("deployment_id")
+        api_type = cfg.params.get("api_type", "chat_completion")
         final_kwargs = cfg.kwargs.copy()
         final_kwargs.update(kwargs)
 
@@ -252,6 +270,9 @@ class ExternalService:
             ]
             for prompt in prompts
         ]
+
+        if api_type != "chat_completion":
+            raise ValueError(f"Batch LLM calls currently only support 'chat_completion' API type. Got '{api_type}'.")
 
         try:
             # 2. Call batch_completion with the list of message lists
@@ -269,6 +290,7 @@ class ExternalService:
             # 3. Process the LIST of responses
             extracted_responses = []
             extracted_logprobs = []
+            total_cost = 0.0
 
             for r in responses:
                 # Extract content
@@ -282,6 +304,11 @@ class ExternalService:
                 else:
                     extracted_logprobs.append(None)
 
+                try:
+                    total_cost += completion_cost(completion_response=r) or 0.0
+                except Exception:
+                    pass
+
             return {
                 "response": extracted_responses,
                 "logprobs": (
@@ -289,6 +316,7 @@ class ExternalService:
                     if any(x is not None for x in extracted_logprobs)
                     else None
                 ),
+                "cost": total_cost,
             }
 
         except RETRYABLE_EXCEPTIONS as e:
@@ -301,12 +329,13 @@ class ExternalService:
             return {
                 "response": [None] * len(prompts) if prompts else [],
                 "logprobs": None,
+                "cost": 0.0,
             }
 
     @retry(
         retry=retry_if_exception_type(RETRYABLE_EXCEPTIONS),
         stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=2, min=3, max=180),
+        wait=wait_exponential(multiplier=2, min=3, max=500),
         reraise=True,
     )
     async def llm_call_async(
@@ -321,23 +350,46 @@ class ExternalService:
         api_base = cfg.params.get("api_base")
         api_version = cfg.params.get("api_version")
         deployment_id = cfg.params.get("deployment_id")
+        api_type = cfg.params.get("api_type", "chat_completion")
         final_kwargs = cfg.kwargs.copy()
         final_kwargs.update(kwargs)
 
         try:
-            response = await acompletion(
-                model=model,
-                base_url=base_url,
-                api_base=api_base,
-                api_version=api_version,
-                deployment_id=deployment_id,
-                seed=42,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt},
-                ],
-                **final_kwargs,
-            )
+            if api_type == "responses":
+                response = await aresponses(
+                    model=model,
+                    base_url=base_url,
+                    api_base=api_base,
+                    api_version=api_version,
+                    deployment_id=deployment_id,
+                    seed=42,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": prompt},
+                    ],
+                    **final_kwargs,
+                )
+            elif api_type == "chat_completion":
+                response = await acompletion(
+                    model=model,
+                    base_url=base_url,
+                    api_base=api_base,
+                    api_version=api_version,
+                    deployment_id=deployment_id,
+                    seed=42,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": prompt},
+                    ],
+                    **final_kwargs,
+                )
+            else:
+                raise ValueError(f"Unsupported API type: '{api_type}'. Must be 'chat_completion' or 'responses'.")
+
+            try:
+                cost = completion_cost(completion_response=response) or 0.0
+            except Exception:
+                cost = 0.0
 
             response_logprobs = None
             if (
@@ -351,6 +403,7 @@ class ExternalService:
             return {
                 "response": response.choices[0].message.content,
                 "logprobs": response_logprobs,
+                "cost": cost,
             }
 
         except RETRYABLE_EXCEPTIONS as e:
@@ -359,15 +412,15 @@ class ExternalService:
 
         except Exception as e:
             logger.exception("Error calling LLM asynchronously:", e)
-            return {"response": None, "logprobs": None}
+            return {"response": None, "logprobs": None, "cost": 0.0}
 
     @retry(
         retry=retry_if_exception_type(RETRYABLE_EXCEPTIONS),
         stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=2, min=3, max=180),
+        wait=wait_exponential(multiplier=2, min=3, max=500),
         reraise=True,
     )
-    def embedding_call(self, text: str, **kwargs) -> Optional[np.ndarray]:
+    def embedding_call(self, text: str, **kwargs) -> Optional[dict]:
         """Safely call embedding model"""
         cfg = self.config.embeddings
         model = f"{cfg.type}/{cfg.params.get('model_name')}"
@@ -381,7 +434,13 @@ class ExternalService:
                 api_base=api_base,
                 input_type=input_type,
             )
-            return response.data[0]["embedding"]
+
+            try:
+                cost = completion_cost(completion_response=response) or 0.0
+            except Exception:
+                cost = 0.0
+            return {"embedding": response.data[0]["embedding"], "cost": cost}
+
         except RETRYABLE_EXCEPTIONS as e:
             logger.exception(f"Retryable error (will retry): {e}")
             raise
@@ -392,10 +451,10 @@ class ExternalService:
     @retry(
         retry=retry_if_exception_type(RETRYABLE_EXCEPTIONS),
         stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=2, min=3, max=180),
+        wait=wait_exponential(multiplier=2, min=3, max=500),
         reraise=True,
     )
-    async def embedding_call_async(self, text: str, **kwargs) -> Optional[np.ndarray]:
+    async def embedding_call_async(self, text: str, **kwargs) -> Optional[dict]:
         """Safely call embedding model"""
         cfg = self.config.embeddings
         model = f"{cfg.type}/{cfg.params.get('model_name')}"
@@ -409,7 +468,11 @@ class ExternalService:
                 api_base=api_base,
                 input_type=input_type,
             )
-            return response.data[0]["embedding"]
+            try:
+                cost = completion_cost(completion_response=response) or 0.0
+            except Exception:
+                cost = 0.0
+            return {"embedding": response.data[0]["embedding"], "cost": cost}
         except RETRYABLE_EXCEPTIONS as e:
             logger.exception(f"Retryable error (will retry): {e}")
             raise
@@ -420,10 +483,10 @@ class ExternalService:
     @retry(
         retry=retry_if_exception_type(RETRYABLE_EXCEPTIONS),
         stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=2, min=3, max=180),
+        wait=wait_exponential(multiplier=2, min=3, max=500),
         reraise=True,
     )
-    def embedding_call_batch(self, texts: List[str], **kwargs) -> List[np.ndarray]:
+    def embedding_call_batch(self, texts: List[str], **kwargs) -> Optional[dict]:
         """Safely call embedding model with a batch of texts"""
         if not texts:
             return []
@@ -441,8 +504,12 @@ class ExternalService:
                 api_base=api_base,
                 input_type=input_type,
             )
+            try:
+                cost = completion_cost(completion_response=response) or 0.0
+            except Exception:
+                cost = 0.0
             # Extract list of embeddings in order
-            return [data["embedding"] for data in response.data]
+            return {"embedding": [data["embedding"] for data in response.data], "cost": cost}
         except RETRYABLE_EXCEPTIONS as e:
             logger.exception(f"Retryable error (will retry): {e}")
             raise
@@ -453,7 +520,7 @@ class ExternalService:
     @retry(
         retry=retry_if_exception_type(RETRYABLE_EXCEPTIONS),
         stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=2, min=3, max=180),
+        wait=wait_exponential(multiplier=2, min=3, max=500),
         reraise=True,
     )
     def reranker_call(self, query: str, documents: List[str], **kwargs) -> List[str]:

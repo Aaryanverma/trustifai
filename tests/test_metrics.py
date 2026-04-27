@@ -1,5 +1,5 @@
 import numpy as np
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, AsyncMock
 from trustifai.metrics import (
     EvidenceCoverageMetric, 
     SemanticDriftMetric, 
@@ -10,18 +10,18 @@ from trustifai.metrics import (
 
 def test_semantic_drift(basic_context, mock_service):
     # Setup embeddings to be identical
-    basic_context.answer_embeddings = np.array([1, 0])
-    basic_context.document_embeddings = np.array([[1, 0], [1, 0]])
-
+    basic_context.answer_embeddings = np.array([0.1, 0.2, 0.3])
+    basic_context.document_embeddings = [np.array([0.1, 0.2, 0.3]), np.array([0.1, 0.2, 0.3])]
+    mock_service.embedding_call_batch.return_value = {"embedding": [[0.1, 0.2, 0.3],[0.1, 0.2, 0.3]], "cost": 0.0}
+    
     # Patch config with real thresholds
     config = MagicMock()
     config.thresholds = MagicMock()
     config.thresholds.STRONG_ALIGNMENT = 0.9
-    config.thresholds.MODERATE_ALIGNMENT = 0.7
-    config.thresholds.WEAK_ALIGNMENT = 0.5
+    config.thresholds.PARTIAL_ALIGNMENT = 0.5
 
-    metric = SemanticDriftMetric(basic_context, mock_service, config)
-    result = metric.calculate()
+    metric = SemanticDriftMetric(mock_service, config)
+    result = metric.calculate(basic_context)
 
     assert result.score > 0.99
     assert result.label == "Strong Alignment"
@@ -34,17 +34,20 @@ def test_consistency(basic_context, mock_service):
     config.thresholds.FRAGILE_CONSISTENCY = 0.7
     
     # 1. Mock the samples generation
-    mock_service.llm_call_async.return_value = {"response": basic_context.answer, "logprobs": []}
+    # mock_service.llm_call_async.return_value = {"response": basic_context.answer, "logprobs": [], "cost": 0.0}
+    mock_service.llm_call_async = AsyncMock(return_value={"response": basic_context.answer, "logprobs": [], "cost": 0.0})
     
     # 2. Mock embedding for the MAIN answer (still uses single call)
-    mock_service.embedding_call.return_value = [1.0, 0.0]
+    mock_service.embedding_call.return_value = {"embedding": [0.1, 0.2, 0.3], "cost": 0.0}
 
     # 3. Mock embedding for the SAMPLES (uses BATCH call)
-    # Must return a LIST of embeddings, one for each sample
-    mock_service.embedding_call_batch.return_value = [[1.0, 0.0], [1.0, 0.0]]
+    mock_service.embedding_call_batch.return_value = {
+    "embedding": [[0.1, 0.2, 0.3], [0.1, 0.2, 0.3]],
+    "cost": 0.0
+}
     
-    metric = EpistemicConsistencyMetric(basic_context, mock_service, config)
-    result = metric.calculate()
+    metric = EpistemicConsistencyMetric(mock_service, config)
+    result = metric.calculate(basic_context)
     
     assert result.score > 0.99
     assert "Stable" in result.label
@@ -55,8 +58,8 @@ def test_source_diversity(basic_context, mock_service):
     config.thresholds = MagicMock()
     config.thresholds.HIGH_DIVERSITY = 0.7
     config.thresholds.MODERATE_DIVERSITY = 0.4
-    metric = SourceDiversityMetric(basic_context, mock_service, config)
-    result = metric.calculate()
+    metric = SourceDiversityMetric(mock_service, config)
+    result = metric.calculate(basic_context)
     
     assert result.details['unique_sources'] == 2
     assert result.score > 0.0
@@ -75,8 +78,8 @@ def test_evidence_coverage_llm(basic_context, mock_service):
         "response": ['{"spans": [{"index": 0, "supported": true, "answer": "span"}]}']
     }
     
-    metric = EvidenceCoverageMetric(basic_context, mock_service, config)
-    result = metric.calculate()
+    metric = EvidenceCoverageMetric(mock_service, config)
+    result = metric.calculate(basic_context)
     
     assert result.score == 1.0 
     assert result.details['strategy'] == "LLM"
@@ -96,8 +99,8 @@ def test_evidence_coverage_malformed_json(basic_context, mock_service):
         "response": ['I cannot verify this.']
     }
     
-    metric = EvidenceCoverageMetric(basic_context, mock_service, config)
-    result = metric.calculate()
+    metric = EvidenceCoverageMetric(mock_service, config)
+    result = metric.calculate(basic_context)
     
     # Should result in 0 score and recorded failed checks
     assert result.score == 0.0
@@ -147,8 +150,8 @@ def test_evidence_coverage_reranker_strategy(basic_context, mock_service):
     # Override context answer to ensure we have 3 sentences to match our mock
     basic_context.answer = "Sentence one. Sentence two. Sentence three."
     
-    metric = EvidenceCoverageMetric(basic_context, mock_service, config)
-    result = metric.calculate()
+    metric = EvidenceCoverageMetric(mock_service, config)
+    result = metric.calculate(basic_context)
     
     assert result.details['strategy'] == "Reranker"
     
